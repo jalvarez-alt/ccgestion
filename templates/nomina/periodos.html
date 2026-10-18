@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Periodos - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Periodos de nómina</h1>
+<form method="post" class="panel filtros">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label class="campo">Empleador
+        <select name="empleador_id" required>{% for e in empleadores %}<option value="{{ e.id }}" {% if eid == e.id %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}</select></label>
+    <label class="campo">Año <input type="number" name="anio" value="{{ hoy.year }}" min="2020" max="2100" required></label>
+    <label class="campo">Mes
+        <select name="mes">{% for i in range(1, 13) %}<option value="{{ i }}" {% if i == hoy.month %}selected{% endif %}>{{ MESES[i] }}</option>{% endfor %}</select></label>
+    <label class="campo">Quincena
+        <select name="quincena"><option value="1" {% if hoy.day <= 15 %}selected{% endif %}>1.ª (1 al 15)</option><option value="2" {% if hoy.day > 15 %}selected{% endif %}>2.ª (16 al fin de mes)</option></select></label>
+    <div class="acciones"><button type="submit">Crear / abrir periodo</button></div>
+</form>
+{% if lista %}
+<div class="tabla-scroll"><table>
+    <thead><tr><th>Empleador</th><th>Periodo</th><th>Estado</th><th>Liquidados</th><th>Neto total</th><th></th></tr></thead>
+    <tbody>{% for p in lista %}
+    <tr><td>{{ p.empleador }}</td><td>{{ nombre_periodo(p) }}</td><td>{{ p.estado|capitalize }}</td><td>{{ p.n_liq }}</td><td>{{ p.total_neto|pesos }}</td>
+        <td><a href="{{ url_for('nomina.periodo', pid=p.id) }}">Abrir</a></td></tr>
+    {% endfor %}</tbody>
+</table></div>
+{% else %}<p class="nota">Aún no hay periodos.</p>{% endif %}
+{% endblock %}

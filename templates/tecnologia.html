@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %}Administración Tecnológica - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Administración Tecnológica</h1>
+<p class="nota">Inventario de los activos tecnológicos de la empresa.</p>
+<div class="tarjetas">
+    {% if puede('celulares.consultar') %}
+    <a class="tarjeta" href="{{ url_for('celulares.lista') }}">
+        <strong>Celulares</strong>
+        <span>Asignaciones, historial de rotación, bajas y Excel.</span>
+    </a>
+    {% endif %}
+    {% if puede('equipos.consultar') %}
+    <a class="tarjeta" href="{{ url_for('equipos.lista') }}">
+        <strong>Equipos de cómputo</strong>
+        <span>Computadores, servidores y periféricos con su software instalado.</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

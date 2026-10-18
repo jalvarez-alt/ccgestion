@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Usuarios y roles</h1>
+{% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="tabla-scroll"><table>
+    <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+    <tbody>
+    {% for u in lista %}
+    <tr>
+        <td>{{ u.nombre }}</td><td>{{ u.correo }}</td><td>{{ ROLES.get(u.rol, u.rol) }}</td>
+        <td>{{ 'Activo' if u.activo else 'Desactivado' }}</td>
+        <td>{{ mostrar('creada', u.ultimo_acceso) }}</td>
+        <td><a href="{{ url_for('usuario_editar', uid=u.id) }}">Editar</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+
+<section class="panel">
+    <h2>Crear usuario</h2>
+    <form method="post" action="{{ url_for('usuario_crear') }}" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <div class="grid">
+            <label class="campo">Nombre completo <input type="text" name="nombre" value="{{ v.get('nombre','') }}" required maxlength="200"></label>
+            <label class="campo">Correo <input type="email" name="correo" value="{{ v.get('correo','') }}" required maxlength="190"></label>
+            <label class="campo">Rol
+                <select name="rol">
+                    {% for k, t in ROLES.items() %}<option value="{{ k }}" {% if v.get('rol') == k %}selected{% endif %}>{{ t }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="campo">Contraseña <input type="password" name="clave" required minlength="8"></label>
+            <label class="campo">Repite la contraseña <input type="password" name="clave2" required minlength="8"></label>
+        </div>
+        <button type="submit">Crear usuario</button>
+    </form>
+</section>
+<section class="panel nota">
+    <strong>Roles:</strong> <b>Administrador</b>: todo, incluida la gestión de usuarios.
+    <b>Usuario</b>: ve todos los registros, descarga PDF y exporta a Excel.
+    <b>Vinculante</b>: diligencia el formulario y solo ve y descarga los suyos.
+    <b>Nómina</b>: solo accede al módulo de nómina (empleados, salarios, liquidación y desprendibles); no ve los formularios de vinculación.
+</section>
+{% endblock %}

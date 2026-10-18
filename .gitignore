@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+tmp/
+*.log
+instalar_log.txt
+sftp.json
+.vscode/
+config.py
+ccgestion_dump.sql
+*.sql

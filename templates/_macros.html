@@ -1,0 +1,80 @@
+{% macro campo(name, label, tipo='text', clase='', maxlen=200, extra='') %}
+<label class="campo {{ clase }}">{{ label }}
+    <input type="{{ tipo }}" name="{{ name }}" value="{{ v.get(name, '') }}" maxlength="{{ maxlen }}" {{ extra|safe }}>
+</label>
+{% endmacro %}
+
+{% macro numero(name, label, clase='') %}
+<label class="campo {{ clase }}">{{ label }}
+    <input type="text" inputmode="numeric" name="{{ name }}" value="{{ v.get(name, '') }}" maxlength="25">
+</label>
+{% endmacro %}
+
+{% macro area(name, label, filas=3) %}
+<label class="campo ancho">{{ label }}
+    <textarea name="{{ name }}" rows="{{ filas }}" maxlength="3000">{{ v.get(name, '') }}</textarea>
+</label>
+{% endmacro %}
+
+{% macro lista(name, label, opciones, clase='') %}
+<label class="campo {{ clase }}">{{ label }}
+    <select name="{{ name }}">
+        <option value="">Selecciona...</option>
+        {% for o in opciones %}
+        <option value="{{ o }}" {% if v.get(name) == o %}selected{% endif %}>{{ o }}</option>
+        {% endfor %}
+    </select>
+</label>
+{% endmacro %}
+
+{% macro radios(name, label, opciones, clase='') %}
+<fieldset class="campo radios {{ clase }}">
+    <legend>{{ label }}</legend>
+    {% for valor, texto in opciones %}
+    <label><input type="radio" name="{{ name }}" value="{{ valor }}" {% if v.get(name) == valor %}checked{% endif %}> {{ texto }}</label>
+    {% endfor %}
+</fieldset>
+{% endmacro %}
+
+{% macro sino(name, label, clase='') %}
+{{ radios(name, label, [('si', 'Sí'), ('no', 'No')], clase) }}
+{% endmacro %}
+
+{% macro marca(name, texto) %}
+<label class="chk"><input type="checkbox" name="{{ name }}" value="1" {% if v.get(name) %}checked{% endif %}> {{ texto }}</label>
+{% endmacro %}
+
+{% macro persona(p) %}
+<div class="grid">
+    {{ campo(p ~ '_nombre', 'Nombre completo', clase='ancho') }}
+    {{ lista(p ~ '_tipo_id', 'Tipo de identificación', textos.TIPOS_ID) }}
+    {{ campo(p ~ '_num_id', 'Número de identificación', maxlen=30) }}
+    {{ campo(p ~ '_fexp', 'Fecha de expedición', 'date') }}
+    {{ campo(p ~ '_lexp', 'Lugar de expedición') }}
+    {{ campo(p ~ '_lnac', 'Lugar de nacimiento') }}
+    {{ campo(p ~ '_fnac', 'Fecha de nacimiento', 'date') }}
+    {{ campo(p ~ '_depto', 'Departamento') }}
+    {{ campo(p ~ '_nacionalidad', 'Nacionalidad') }}
+    {{ campo(p ~ '_ciudad', 'Ciudad') }}
+    {{ campo(p ~ '_dir', 'Dirección') }}
+    {{ campo(p ~ '_tel', 'Teléfono de contacto', 'tel', maxlen=30) }}
+    {{ campo(p ~ '_email', 'Correo electrónico', 'email') }}
+</div>
+{% endmacro %}
+
+{% macro financiero(n, titulo) %}
+<h3>{{ titulo }}</h3>
+<div class="grid" id="fin{{ n }}">
+    {{ campo('fin%d_anio' % n, 'Año de corte (ej. 2025)', maxlen=4, extra='inputmode="numeric"') }}
+    <span></span>
+    {{ numero('fin%d_ingresos' % n, 'Ingresos mensuales ($)') }}
+    {{ numero('fin%d_egresos' % n, 'Egresos mensuales ($)') }}
+    {{ numero('fin%d_activos' % n, 'Activos ($)') }}
+    {{ numero('fin%d_pasivos' % n, 'Pasivos ($)') }}
+    <label class="campo">Patrimonio (Act. - Pas $) <small>(se calcula solo)</small>
+        <input type="text" name="fin{{ n }}_patrimonio" value="{{ v.get('fin%d_patrimonio' % n, '') }}" readonly>
+    </label>
+    {{ numero('fin%d_otros' % n, 'Otros ingresos ($)') }}
+    {{ campo('fin%d_concepto' % n, 'Concepto de otros ingresos mensuales', clase='ancho') }}
+</div>
+{% endmacro %}

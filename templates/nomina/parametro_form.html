@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block titulo %}Parámetros - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar parámetros' if pid else 'Nuevos parámetros' }}</h1>
+{% if errores %}<div class="errores"><ul>{% for x in errores %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="panel">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="grid">
+        <label class="campo">Vigente desde <input type="date" name="vigente_desde" value="{{ v.vigente_desde or '' }}" required></label>
+        <label class="campo ancho">Nota <input type="text" name="nota" value="{{ v.nota or '' }}" maxlength="200"></label>
+        {% for c, nombre, u in campos %}
+        <label class="campo">{{ nombre }} ({{ u }}) <input type="text" inputmode="decimal" name="{{ c }}" value="{{ v.get(c) if v.get(c) is not none else '' }}" {% if c != 'uvt' %}required{% endif %}></label>
+        {% endfor %}
+    </div>
+    <button type="submit">Guardar</button> <a class="boton secundario" href="{{ url_for('nomina.parametros') }}">Cancelar</a>
+</form>
+{% endblock %}

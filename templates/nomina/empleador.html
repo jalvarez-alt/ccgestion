@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}{{ e.nombre }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ e.nombre }}</h1>
+<p class="nota">NIT {{ e.nit }} · {{ 'Exonerado' if e.exonerado else 'No exonerado' }} de SENA/ICBF/salud · <a href="{{ url_for('nomina.empleador_form', eid=e.id) }}">Editar empleador</a></p>
+
+<section class="panel">
+    <h2>Empleados</h2>
+    <form method="get" class="filtros">
+        <label class="campo">Buscar <input type="text" name="q" value="{{ buscar or '' }}" placeholder="Nombre o documento"></label>
+        <div class="acciones">
+            <button type="submit">Buscar</button>
+            <a class="boton verde" href="{{ url_for('nomina.empleado_form', empleador=e.id) }}">Nuevo empleado</a>
+            <a class="boton secundario" href="{{ url_for('nomina.consultas', empleador=e.id) }}">Consultar nómina</a>
+        </div>
+    </form>
+    {% if empleados %}
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Documento</th><th>Nombre</th><th>Cargo</th><th>Ingreso</th><th>Salario</th><th>Correo</th><th>Estado</th><th></th></tr></thead>
+        <tbody>{% for m in empleados %}
+        <tr><td>{{ m.tipo_id }} {{ m.num_id }}</td><td>{{ m.nombre }}</td><td>{{ m.cargo or '' }}</td><td>{{ m.fecha_ingreso }}</td>
+            <td>{{ m.salario|pesos }}</td><td>{{ m.email or '—' }}</td><td>{{ 'Activo' if m.activo else 'Inactivo' }}</td>
+            <td><a href="{{ url_for('nomina.empleado_form', mid=m.id) }}">Editar</a></td></tr>
+        {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="nota">No hay empleados.</p>{% endif %}
+</section>
+
+<section class="panel">
+    <h2>Periodos</h2>
+    <a class="boton verde" href="{{ url_for('nomina.periodos', empleador=e.id) }}">Crear / ver periodos</a>
+    {% if periodos %}
+    <div class="tabla-scroll" style="margin-top:12px"><table>
+        <thead><tr><th>Periodo</th><th>Estado</th><th>Liquidados</th><th>Neto total</th><th></th></tr></thead>
+        <tbody>{% for p in periodos[:12] %}
+        <tr><td>{{ nombre_periodo(p) }}</td><td>{{ p.estado|capitalize }}</td><td>{{ p.n_liq }}</td><td>{{ p.total_neto|pesos }}</td>
+            <td><a href="{{ url_for('nomina.periodo', pid=p.id) }}">Abrir</a></td></tr>
+        {% endfor %}</tbody>
+    </table></div>{% endif %}
+</section>
+{% endblock %}

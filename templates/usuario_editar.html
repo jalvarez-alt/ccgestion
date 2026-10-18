@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Editar usuario - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<p><a href="{{ url_for('usuarios') }}">&larr; Volver</a></p>
+<h1>Editar usuario</h1>
+<p class="nota">{{ u.correo }}</p>
+{% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="tarjeta-centro" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label class="campo">Nombre completo <input type="text" name="nombre" value="{{ u.nombre }}" required maxlength="200"></label>
+    <label class="campo">Rol
+        <select name="rol" {% if es_yo %}disabled{% endif %}>
+            {% for k, t in ROLES.items() %}<option value="{{ k }}" {% if u.rol == k %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select>
+    </label>
+    <label class="chk"><input type="checkbox" name="activo" value="1" {% if u.activo %}checked{% endif %} {% if es_yo %}disabled{% endif %}> Cuenta activa</label>
+    {% if es_yo %}<p class="nota">No puedes cambiar tu propio rol ni desactivarte.</p>{% endif %}
+    <label class="campo">Nueva contraseña (déjala vacía para no cambiarla)
+        <input type="password" name="clave" minlength="8" maxlength="200">
+    </label>
+    <button type="submit" class="grande">Guardar</button>
+</form>
+{% endblock %}

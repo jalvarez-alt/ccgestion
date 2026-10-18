@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Empleador - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar empleador' if eid else 'Nuevo empleador' }}</h1>
+{% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="panel">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="grid">
+        <label class="campo">Razón social <input type="text" name="nombre" value="{{ v.nombre or '' }}" required maxlength="200"></label>
+        <label class="campo">NIT <input type="text" name="nit" value="{{ v.nit or '' }}" required maxlength="30"></label>
+        <label class="campo">Dirección <input type="text" name="direccion" value="{{ v.direccion or '' }}" maxlength="200"></label>
+        <label class="campo">Ciudad <input type="text" name="ciudad" value="{{ v.ciudad or '' }}" maxlength="100"></label>
+        <label class="campo">Teléfono <input type="text" name="telefono" value="{{ v.telefono or '' }}" maxlength="40"></label>
+        <label class="campo">Correo <input type="email" name="email" value="{{ v.email or '' }}" maxlength="190"></label>
+        <label class="campo">Exonerado de SENA, ICBF y salud (art. 114-1 E.T.)
+            <select name="exonerado"><option value="1" {% if v.exonerado %}selected{% endif %}>Sí (persona jurídica contribuyente de renta)</option><option value="0" {% if not v.exonerado %}selected{% endif %}>No</option></select>
+            <small>Solo aplica a empleados que ganen menos de 10 SMMLV. Confírmalo con tu contador.</small></label>
+        <label class="campo">Estado
+            <select name="activo"><option value="1" {% if v.activo %}selected{% endif %}>Activo</option><option value="0" {% if not v.activo %}selected{% endif %}>Inactivo</option></select></label>
+    </div>
+    <button type="submit">Guardar</button> <a class="boton secundario" href="{{ url_for('nomina.panel') }}">Cancelar</a>
+</form>
+{% endblock %}

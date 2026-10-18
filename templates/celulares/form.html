@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}Celular - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar celular' if cid else 'Nuevo celular' }}</h1>
+{% if errores %}<div class="errores"><ul>{% for x in errores %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="panel" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="grid">
+        <label class="campo">Fecha de compra <input type="date" name="fecha_compra" value="{{ v.fecha_compra or '' }}"></label>
+        <label class="campo">Marca <input type="text" name="marca" value="{{ v.marca or '' }}" required maxlength="60" list="l-marcas"></label>
+        <label class="campo">Modelo <input type="text" name="modelo" value="{{ v.modelo or '' }}" required maxlength="80"></label>
+        <label class="campo">IMEI 1 <input type="text" inputmode="numeric" name="imei1" value="{{ v.imei1 or '' }}" maxlength="20"></label>
+        <label class="campo">IMEI 2 <input type="text" inputmode="numeric" name="imei2" value="{{ v.imei2 or '' }}" maxlength="20"></label>
+        <label class="campo">SN (serial) <input type="text" name="sn" value="{{ v.sn or '' }}" maxlength="40"></label>
+        <label class="campo">Firma / Acta de entrega
+            <select name="acta">{% for k, t in ACTAS.items() %}<option value="{{ k }}" {% if v.acta == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+        <label class="campo">Línea asignada <input type="text" inputmode="tel" name="linea" value="{{ v.linea or '' }}" maxlength="20"></label>
+        <label class="campo">Operador <input type="text" name="operador" value="{{ v.operador or '' }}" maxlength="40" list="l-operadores"></label>
+        <label class="campo">Valor del plan (mensual, COP) <input type="text" inputmode="numeric" name="valor_plan" value="{{ v.valor_plan or '' }}"></label>
+        {% if not cid %}
+        <label class="campo">Usuario actual <input type="text" name="usuario_actual" value="{{ v.usuario_actual or '' }}" maxlength="150" list="l-usuarios"><small>Elige una persona de Usuarios; vacío = disponible. Después se cambia con «Reasignar», que guarda el historial.</small></label>
+        {% endif %}
+        <label class="campo ancho">Observaciones <textarea name="observaciones" rows="3" maxlength="2000">{{ v.observaciones or '' }}</textarea></label>
+    </div>
+    <datalist id="l-marcas">{% for m in marcas %}<option value="{{ m }}">{% endfor %}</datalist>
+    <datalist id="l-operadores">{% for m in operadores %}<option value="{{ m }}">{% endfor %}</datalist>
+    <datalist id="l-usuarios">{% for p in personas %}<option value="{{ p.etiqueta }}">{% endfor %}</datalist>
+    <p class="nota">La antigüedad y los años se calculan solos a partir de la fecha de compra. El usuario anterior se llena solo al reasignar.</p>
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('celulares.detalle', cid=cid) if cid else url_for('celulares.lista') }}">Cancelar</a>
+</form>
+{% endblock %}

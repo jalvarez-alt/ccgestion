@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block titulo %}Formato de vinculación - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Formato de vinculación y conocimiento de asociados de negocio</h1>
+<p class="nota">Los campos con * son obligatorios.</p>
+
+{% if errores %}
+<div class="errores">
+    <strong>Revisa lo siguiente:</strong>
+    <ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('formulario') }}" id="formulario" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="text" name="web" class="trampa" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+    <section class="panel">
+        <h2>Datos de la solicitud</h2>
+        <div class="grid">
+            {{ m.campo('fecha', 'Fecha de diligenciamiento *', 'date', extra='required') }}
+            <div class="campo">Vinculación como *
+                <div class="radios">
+                    {{ m.marca('es_cliente', 'Cliente') }}
+                    {{ m.marca('es_proveedor', 'Proveedor') }}
+                </div>
+            </div>
+            {{ m.radios('solicitud', 'Tipo de solicitud *', [('nuevo', 'Nuevo'), ('actualizacion', 'Actualización')]) }}
+            {{ m.radios('tipo_persona', 'Tipo de persona *', [('natural', 'Persona Natural'), ('juridica', 'Persona Jurídica')]) }}
+        </div>
+    </section>
+
+    <section class="panel" data-solo="natural">
+        <h2>1. Persona Natural</h2>
+        {{ m.persona('pn') }}
+    </section>
+
+    <section class="panel" data-solo="juridica">
+        <h2>2. Persona Jurídica</h2>
+        <div class="grid">
+            {{ m.campo('pj_razon', 'Razón social', clase='ancho') }}
+            {{ m.campo('pj_nit', 'NIT', maxlen=30) }}
+            {{ m.campo('pj_ciudad', 'Ciudad') }}
+            {{ m.campo('pj_dir', 'Dirección') }}
+            {{ m.campo('pj_tel', 'Teléfono de contacto', 'tel', maxlen=30) }}
+        </div>
+        <h3>2.1 Representante Legal</h3>
+        {{ m.persona('rl') }}
+    </section>
+
+    <section class="panel">
+        <h2>3. Información General</h2>
+        <div class="grid">
+            {{ m.campo('ciiu', 'Código CIIU', maxlen=10) }}
+            {{ m.campo('actividad', 'Actividad económica') }}
+            {{ m.campo('sector', 'Sector económico') }}
+            {{ m.area('descripcion', 'Describa la actividad económica principal') }}
+            {{ m.sino('gremios', '¿Pertenece a gremios o asociaciones reconocidas?') }}
+            {{ m.campo('gremio_cual', 'En caso afirmativo, por favor cuál') }}
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>4. Información Financiera</h2>
+        <p class="nota">{{ textos.NOTA_FINANCIERA }}</p>
+        {{ m.financiero(1, 'Primer año') }}
+        {{ m.financiero(2, 'Segundo año') }}
+
+        <h3>4.1 Cuentas o productos financieros en entidades bancarias</h3>
+        {% for i in range(1, textos.N_CUENTAS + 1) %}
+        <div class="grid">
+            {{ m.campo('cta_entidad_%d' % i, 'Entidad financiera') }}
+            {{ m.lista('cta_tipo_%d' % i, 'Tipo de producto', textos.TIPOS_PRODUCTO) }}
+            {{ m.campo('cta_num_%d' % i, 'Nro. de producto', maxlen=40) }}
+        </div>
+        {% endfor %}
+        <p class="nota">{{ textos.NOTA_CUENTAS }}</p>
+
+        <h3>4.2 Operaciones en Moneda Extranjera y Activos Virtuales</h3>
+        <div class="grid">
+            {{ m.sino('mext', '¿Realiza operaciones en moneda extranjera?') }}
+            {{ m.campo('mext_tipo', 'Tipo de operación') }}
+            {{ m.campo('mext_moneda', 'Monedas utilizadas') }}
+            {{ m.sino('avirt', '¿Realiza operaciones en activos virtuales?') }}
+            {{ m.campo('avirt_tipo', 'Tipo de virtual utilizado') }}
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>5. Información de Beneficiarios Finales</h2>
+        <p class="nota">{{ textos.BF_TEXTO }}</p>
+        {% for i in range(1, textos.N_BENEFICIARIOS + 1) %}
+        <div class="grid">
+            {{ m.lista('bf_tipo_%d' % i, 'Tipo de documento', textos.TIPOS_DOC_BF) }}
+            {{ m.campo('bf_num_%d' % i, 'No. identificación', maxlen=30) }}
+            {{ m.campo('bf_fexp_%d' % i, 'Fecha de expedición', 'date') }}
+            {{ m.campo('bf_nombre_%d' % i, 'Nombres y apellidos') }}
+            {{ m.campo('bf_part_%d' % i, 'Participación accionaria (%)', maxlen=10) }}
+        </div>
+        {% endfor %}
+        <p class="nota">{{ textos.BF_NOTA }}</p>
+    </section>
+
+    <section class="panel">
+        <h2>6. Información relacionada con PEP (Persona Expuesta Políticamente)</h2>
+        <div class="grid">
+            {{ m.sino('pep1', textos.PEP_1, 'ancho') }}
+            {{ m.area('pep1_detalle', 'Si la respuesta es afirmativa, indica:', 2) }}
+            {{ m.sino('pep2', textos.PEP_2, 'ancho') }}
+            {{ m.area('pep2_detalle', 'Si la respuesta es afirmativa, indica:', 2) }}
+        </div>
+        <p class="nota">{{ textos.PEP_NOTA }}</p>
+    </section>
+
+    <section class="panel">
+        <h2>7. Información Tributaria</h2>
+        <div class="grid">
+            {{ m.marca('trib_23', '23 - Agente de retención en ventas') }}
+            {{ m.marca('trib_13', '13 - Gran Contribuyente') }}
+            {{ m.campo('res_gran', 'Resolución (Gran Contribuyente)') }}
+            {{ m.marca('trib_47', '47 - Régimen simple de tributación') }}
+            {{ m.marca('trib_49', '49 - No Responsable') }}
+            {{ m.marca('trib_15', '15 - Autorretenedor') }}
+            {{ m.campo('res_auto', 'Resolución (Autorretenedor)') }}
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>8. Referencias Comerciales</h2>
+        {% for i in range(1, textos.N_REFERENCIAS + 1) %}
+        <div class="grid">
+            {{ m.campo('ref_entidad_%d' % i, 'Entidad') }}
+            {{ m.campo('ref_contacto_%d' % i, 'Nombre del contacto') }}
+            {{ m.campo('ref_cargo_%d' % i, 'Cargo') }}
+            {{ m.campo('ref_tel_%d' % i, 'Teléfono de contacto', 'tel', maxlen=30) }}
+        </div>
+        {% endfor %}
+    </section>
+
+    <section class="panel">
+        <h2>9. Declaración de Origen, Destino de Fondos y/o Bienes</h2>
+        <p><strong>1.</strong> {{ textos.DECL_1 }}</p>
+        {{ m.area('origen_fondos', 'Fuentes de los recursos', 3) }}
+        <p><strong>2.</strong> {{ textos.DECL_2 }}</p>
+        <p><strong>3.</strong> {{ textos.DECL_3 }}</p>
+        <p><strong>4.</strong> {{ textos.DECL_4 }}</p>
+    </section>
+
+    <section class="panel">
+        <h2>10. Autorización de Tratamiento de Datos Personales</h2>
+        <p>{{ textos.AUTORIZACION }}</p>
+        {{ m.marca('acepta_datos', 'He leído y acepto la autorización de tratamiento de datos personales *') }}
+    </section>
+
+    <section class="panel">
+        <h2>11. Documentos Solicitados</h2>
+        <p class="nota">Entrega estos documentos a la empresa; no se suben en este formulario.</p>
+        <div data-solo="natural">
+            <h3>Persona Natural</h3>
+            <ul>{% for i in textos.DOCS_NATURAL %}<li>{{ i }}</li>{% endfor %}</ul>
+        </div>
+        <div data-solo="juridica">
+            <h3>Persona Jurídica</h3>
+            <ul>{% for i in textos.DOCS_JURIDICA %}<li>{{ i }}</li>{% endfor %}</ul>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>12. Firma</h2>
+        <p>{{ textos.FIRMA_TEXTO }}</p>
+        <div class="grid">
+            {{ m.campo('firma_nombre', 'Nombre *') }}
+            {{ m.campo('firma_cc', 'C.C. *', maxlen=30) }}
+        </div>
+        <p>Firma del Solicitante (o Representante Legal) — dibuja tu firma con el dedo o el mouse. Es opcional: si no firmas aquí, podrás firmar el PDF impreso.</p>
+        <canvas id="firma" width="500" height="160"></canvas>
+        <input type="hidden" name="firma_img" id="firma_img" value="{{ v.get('firma_img', '') }}">
+        <p><button type="button" id="limpiar" class="secundario">Borrar firma</button></p>
+    </section>
+
+    <p class="nota">{{ textos.NOTA_FINAL }}</p>
+    <button type="submit" class="grande">Finalizar y generar PDF</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='form.js') }}"></script>
+{% endblock %}

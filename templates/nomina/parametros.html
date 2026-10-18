@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Parámetros - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Parámetros legales de nómina</h1>
+<p class="nota">Cada conjunto aplica desde su fecha de vigencia. Al liquidar se usa el más reciente anterior o igual a la fecha final del periodo. Verifica estos valores cada año (y ante cambios de ley) con tu contador o abogado laboral.</p>
+<a class="boton verde" href="{{ url_for('nomina.parametro_form') }}">Nuevo conjunto de parámetros</a>
+<div class="tabla-scroll" style="margin-top:12px"><table>
+    <thead><tr><th>Vigente desde</th><th>SMMLV</th><th>Aux. transporte</th><th>Horas/sem.</th><th>Dominical</th><th>Nota</th><th></th></tr></thead>
+    <tbody>{% for p in lista %}
+    <tr><td>{{ p.vigente_desde }}</td><td>{{ p.smmlv|pesos }}</td><td>{{ p.aux_transporte|pesos }}</td><td>{{ p.horas_semana }}</td><td>{{ p.rec_dominical|int }}%</td><td>{{ p.nota or '' }}</td>
+        <td><a href="{{ url_for('nomina.parametro_form', pid=p.id) }}">Editar</a></td></tr>
+    {% endfor %}</tbody>
+</table></div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Periodo - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ nombre_periodo(p) }}</h1>
+<p class="nota">{{ p.empleador }} · del {{ p.fecha_inicio }} al {{ p.fecha_fin }} · Estado: <b>{{ p.estado|capitalize }}</b>{% if p.liquidado_en %} · Última liquidación: {{ p.liquidado_en }}{% endif %}</p>
+
+{% if p.estado == 'abierto' %}
+<section class="panel">
+    <h2>Registrar novedad</h2>
+    <p class="nota">Horas extras y recargos, comisiones y bonos, incapacidades, licencias, vacaciones y descuentos de este periodo.</p>
+    <form method="post" action="{{ url_for('nomina.novedad_agregar', pid=p.id) }}" class="filtros">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="campo">Empleado
+            <select name="empleado_id" required><option value="">Elige…</option>{% for m in empleados %}<option value="{{ m.id }}">{{ m.nombre }} ({{ m.num_id }})</option>{% endfor %}</select></label>
+        <label class="campo">Tipo
+            <select name="tipo" required>{% for k, t in TIPOS.items() %}<option value="{{ k }}">{{ t[0] }} ({{ t[1] }})</option>{% endfor %}</select></label>
+        <label class="campo">Cantidad (horas o días) <input type="text" inputmode="decimal" name="cantidad"></label>
+        <label class="campo">Valor ($, comisiones/bonos/descuentos) <input type="text" inputmode="numeric" name="valor"></label>
+        <label class="campo">Días de incapacidad previos <input type="number" name="previos" min="0" max="999" value="0"><small>Solo incapacidades: días ya acumulados antes de este periodo.</small></label>
+        <label class="campo">Nota <input type="text" name="nota" maxlength="200"></label>
+        <div class="acciones"><button type="submit">Agregar novedad</button></div>
+    </form>
+</section>
+{% endif %}
+
+<section class="panel">
+    <h2>Novedades ({{ novedades|length }})</h2>
+    {% if novedades %}
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Empleado</th><th>Tipo</th><th>Cantidad / valor</th><th>Nota</th><th></th></tr></thead>
+        <tbody>{% for n in novedades %}
+        <tr><td>{{ n.empleado }}</td><td>{{ TIPOS[n.tipo][0] }}</td>
+            <td>{% if n.valor %}{{ n.valor|pesos }}{% else %}{{ n.cantidad|float }} {{ TIPOS[n.tipo][1] }}{% endif %}{% if n.previos %} (previos: {{ n.previos }}){% endif %}</td>
+            <td>{{ n.nota or '' }}</td>
+            <td>{% if p.estado == 'abierto' %}<form class="en-linea" method="post" action="{{ url_for('nomina.novedad_eliminar', pid=p.id, nid=n.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit" class="enlace">Eliminar</button></form>{% endif %}</td></tr>
+        {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="nota">Sin novedades: se liquidará el salario completo de la quincena.</p>{% endif %}
+</section>
+
+<section class="panel">
+    <h2>Liquidación</h2>
+    <div class="acciones">
+        {% if p.estado == 'abierto' %}
+        <form class="en-linea" method="post" action="{{ url_for('nomina.liquidar', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit">{{ 'Volver a liquidar' if liqs else 'Liquidar periodo' }}</button></form>
+        {% if liqs %}<form class="en-linea" method="post" action="{{ url_for('nomina.cerrar', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit" class="secundario">Cerrar periodo</button></form>{% endif %}
+        {% elif puede('nomina.reabrir') %}
+        <form class="en-linea" method="post" action="{{ url_for('nomina.reabrir', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit" class="secundario">Reabrir periodo</button></form>
+        {% endif %}
+        {% if liqs %}
+        <form class="en-linea" method="post" action="{{ url_for('nomina.enviar_pendientes', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit" class="verde" {% if not smtp %}disabled title="Configura el correo en config.py"{% endif %}>Enviar desprendibles pendientes</button></form>
+        <a class="boton verde" href="{{ url_for('nomina.exportar', empleador=p.empleador_id, anio=p.anio, mes=p.mes, quincena=p.quincena) }}">Excel del periodo</a>
+        {% endif %}
+    </div>
+    {% if liqs %}
+    <div class="tabla-scroll" style="margin-top:12px"><table>
+        <thead><tr><th>Empleado</th><th>Días</th><th>Devengado</th><th>Deducciones</th><th>Neto</th><th>Correo</th><th></th></tr></thead>
+        <tbody>{% for l in liqs %}
+        <tr><td>{{ l.nombre }}<br><small class="nota">{{ l.num_id }}</small></td><td>{{ l.dias_trabajados|float }}</td><td>{{ l.total_devengado|pesos }}</td><td>{{ l.total_deducciones|pesos }}</td><td><b>{{ l.neto|pesos }}</b></td>
+            <td>{% if l.correo_enviado %}Enviado {{ l.correo_enviado }}{% elif l.correo_error %}<span title="{{ l.correo_error }}">Error</span>{% elif not l.email %}Sin correo{% else %}Pendiente{% endif %}</td>
+            <td><a href="{{ url_for('nomina.liquidacion', lid=l.id) }}">Detalle</a></td></tr>
+        {% endfor %}</tbody>
+    </table></div>
+    <p class="nota">Cada correo lleva el PDF protegido con el número de documento del empleado. Se envían hasta 10 por clic para no exceder el tiempo del servidor.</p>
+    {% else %}<p class="nota">Aún no se ha liquidado este periodo.</p>{% endif %}
+</section>
+{% endblock %}

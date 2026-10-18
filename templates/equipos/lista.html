@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Equipos de cómputo - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Inventario de equipos de cómputo</h1>
+<div class="tarjetas resumen">
+    <div class="tarjeta"><strong>{{ r.total }}</strong><span>Equipos</span></div>
+    <div class="tarjeta"><strong>{{ r.asignados }}</strong><span>Con usuario asignado</span></div>
+    <div class="tarjeta"><strong>{{ r.sin_asignar }}</strong><span>Sin asignar</span></div>
+    <div class="tarjeta"><strong>{{ r.reparacion }}</strong><span>En reparación</span></div>
+</div>
+<form method="get" class="filtros panel">
+    <label class="campo">Buscar <input type="text" name="q" value="{{ f.q or '' }}" maxlength="100" placeholder="ID, marca, modelo, serial, procesador, usuario…"></label>
+    <label class="campo">Tipo
+        <select name="tipo"><option value="">Todos</option>{% for k, t in TIPOS_EQ.items() %}<option value="{{ k }}" {% if f.tipo == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+    <label class="campo">Ciudad
+        <select name="ciudad"><option value="">Todas</option>{% for c in ciudades %}<option {% if f.ciudad == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    <label class="campo">Estado
+        <select name="estado"><option value="">Todos</option>{% for k, t in ESTADOS_EQ.items() %}<option value="{{ k }}" {% if f.estado == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+    <label class="campo">Software instalado <input type="text" name="software" value="{{ f.software or '' }}" maxlength="100" placeholder="Ej.: AutoCAD"></label>
+    <div class="acciones">
+        <button type="submit">Filtrar</button>
+        <a class="boton secundario" href="{{ url_for('equipos.lista') }}">Limpiar</a>
+        {% if puede('equipos.gestionar') %}<a class="boton verde" href="{{ url_for('equipos.formulario') }}">Nuevo equipo</a>
+        <a class="boton secundario" href="{{ url_for('equipos.importar') }}">Cargar desde archivo</a>{% endif %}
+        <a class="boton verde" href="{{ url_for('equipos.exportar', q=f.q or '', tipo=f.tipo or '', ciudad=f.ciudad or '', estado=f.estado or '', software=f.software or '') }}">Exportar a Excel</a>
+    </div>
+</form>
+<p class="nota">{{ filas|length }} equipo{{ '' if filas|length == 1 else 's' }}.</p>
+{% if filas %}
+<div class="tabla-scroll"><table>
+    <thead><tr><th>ID</th><th>Tipo</th><th>Equipo</th><th>Procesador</th><th>RAM / SSD</th><th>Usuario</th><th>Ciudad</th><th>Sistema operativo</th><th>Office</th><th>Antivirus</th><th>Software</th><th>Estado</th><th></th></tr></thead>
+    <tbody>{% for e in filas %}
+    <tr><td><b>{{ e.codigo }}</b></td><td>{{ TIPOS_EQ[e.tipo] }}</td><td>{{ e.marca or '' }} {{ e.modelo or '' }}</td>
+        <td>{{ e.procesador or '—' }}</td>
+        <td>{% if e.ram_gb is not none or e.ssd_gb is not none %}{{ e.ram_gb or '—' }} GB / {{ e.ssd_gb or '—' }} GB{% else %}—{% endif %}</td>
+        <td>{{ e.usuario or '—' }}</td><td>{{ e.ciudad or '—' }}</td><td>{{ e.sistema_operativo or '—' }}</td>
+        <td>{{ e.office or '—' }}</td><td>{{ e.antivirus or '—' }}</td><td>{{ e.n_software }}</td><td>{{ ESTADOS_EQ[e.estado] }}</td>
+        <td><a href="{{ url_for('equipos.detalle', eid=e.id) }}">Ver</a></td></tr>
+    {% endfor %}</tbody>
+</table></div>
+{% else %}<p class="nota">No hay equipos con estos filtros.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Usuarios</h1>
+<p class="nota">Una sola base de personas para toda la aplicación (nómina, celulares, equipos…). Habilitar o deshabilitar el acceso no borra a nadie ni afecta su información.</p>
+<div class="pestanas">
+    <a class="{% if ver == 'app' %}activa{% endif %}" href="{{ url_for('usuarios.lista', ver='app') }}">Usuarios de la aplicación <span>{{ cuentas.app }}</span></a>
+    <a class="{% if ver == 'todos' %}activa{% endif %}" href="{{ url_for('usuarios.lista', ver='todos') }}">Todos los usuarios <span>{{ cuentas.todos }}</span></a>
+</div>
+<form method="get" class="filtros panel">
+    <input type="hidden" name="ver" value="{{ ver }}">
+    <label class="campo">Buscar <input type="text" name="q" value="{{ q or '' }}" maxlength="100" placeholder="Nombre, documento, correo o cargo"></label>
+    <div class="acciones">
+        <button type="submit">Buscar</button>
+        <a class="boton secundario" href="{{ url_for('usuarios.lista', ver=ver) }}">Limpiar</a>
+        {% if puede('personas.gestionar') %}<a class="boton verde" href="{{ url_for('usuarios.formulario') }}">Nueva persona</a>
+        <a class="boton secundario" href="{{ url_for('usuarios.importar') }}">Cargar desde archivo</a>{% endif %}
+        {% if usuario.rol == 'administrador' %}<a class="boton secundario" href="{{ url_for('usuarios.roles') }}">Roles y permisos</a>{% endif %}
+    </div>
+</form>
+<p class="nota">{{ filas|length }} resultado{{ '' if filas|length == 1 else 's' }}.</p>
+{% if filas %}
+<div class="tabla-scroll"><table>
+    <thead><tr><th>Nombre</th><th>Documento</th><th>Correo</th><th>Cargo / ciudad</th><th>Ingreso / antigüedad</th><th>Rol</th><th>Acceso</th><th>Último ingreso</th><th></th></tr></thead>
+    <tbody>{% for p in filas %}
+    <tr>
+        <td><a href="{{ url_for('usuarios.ficha', pid=p.id) }}">{{ p.nombre }}</a></td>
+        <td>{% if p.num_id %}{{ p.tipo_id or '' }} {{ p.num_id }}{% else %}—{% endif %}</td>
+        <td>{{ p.correo or '—' }}</td>
+        <td>{{ p.cargo or '—' }}<br><small class="nota">{{ p.ciudad or '' }}</small></td>
+        <td>{% if p.fecha_ingreso %}{{ p.fecha_ingreso.strftime('%d/%m/%Y') }}<br><small class="nota">{{ p.antiguedad }}</small>{% else %}—{% endif %}</td>
+        <td>{{ ROLES.get(p.rol, '—') if p.rol else '—' }}</td>
+        <td><span class="etiqueta {{ 'si' if p.activo else 'no' }}">{{ 'Habilitado' if p.activo else 'Sin acceso' }}</span></td>
+        <td>{{ mostrar('creada', p.ultimo_acceso) if p.ultimo_acceso else '—' }}</td>
+        <td class="acc">
+            {% if puede('personas.gestionar') and (usuario.rol == 'administrador' or p.rol != 'administrador') %}
+            <a href="{{ url_for('usuarios.formulario', pid=p.id) }}">Editar</a>
+            <form class="en-linea" method="post" action="{{ url_for('usuarios.acceso', pid=p.id) }}">
+                <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                <input type="hidden" name="ver" value="{{ ver }}">
+                <input type="hidden" name="accion" value="{{ 'deshabilitar' if p.activo else 'habilitar' }}">
+                <button type="submit" class="enlace">{{ 'Deshabilitar acceso' if p.activo else 'Habilitar acceso' }}</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}</tbody>
+</table></div>
+{% else %}<p class="nota">No hay resultados.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar persona' if pid else 'Nueva persona' }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<p><a href="{{ url_for('usuarios.lista', ver='todos') }}">&larr; Volver</a></p>
+<h1>{{ 'Editar persona' if pid else 'Nueva persona' }}</h1>
+{% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <section class="panel">
+        <h2>Datos de la persona</h2>
+        <div class="grid">
+            <label class="campo ancho">Nombre completo <input type="text" name="nombre" value="{{ v.nombre or '' }}" required maxlength="200"></label>
+            <label class="campo">Tipo de documento
+                <select name="tipo_id"><option value="">—</option>{% for t in tipos_id %}<option {% if v.tipo_id == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+            <label class="campo">Número de documento <input type="text" name="num_id" value="{{ v.num_id or '' }}" maxlength="30"></label>
+            <label class="campo">Correo <input type="email" name="correo" value="{{ v.correo or '' }}" maxlength="190"></label>
+            <label class="campo">Teléfono <input type="text" name="telefono" value="{{ v.telefono or '' }}" maxlength="40"></label>
+            <label class="campo">Cargo <input type="text" name="cargo" value="{{ v.cargo or '' }}" maxlength="150"></label>
+            <label class="campo">Ciudad <input type="text" name="ciudad" value="{{ v.ciudad or '' }}" maxlength="100"></label>
+            <label class="campo">Fecha de ingreso a la empresa <input type="date" name="fecha_ingreso" value="{{ (v.fecha_ingreso|string)[:10] if v.fecha_ingreso else '' }}" max="{{ hoy }}">
+                {% if v.antiguedad %}<small>Antigüedad: {{ v.antiguedad }}</small>{% endif %}</label>
+        </div>
+        <p class="nota">Estos datos se reutilizan en nómina, celulares, equipos y los demás módulos.</p>
+    </section>
+    <section class="panel">
+        <h2>Acceso a la aplicación</h2>
+        {% if es_yo %}<p class="nota">Es tu propia cuenta: no puedes cambiar tu rol ni deshabilitarte.</p>{% endif %}
+        <label class="chk"><input type="checkbox" name="acceso" value="1" {% if v.activo %}checked{% endif %} {% if es_yo %}disabled{% endif %}> Esta persona puede ingresar a la aplicación</label>
+        <div class="grid">
+            <label class="campo">Rol
+                <select name="rol" {% if es_yo %}disabled{% endif %}>
+                    <option value="">— sin rol —</option>
+                    {% for k, t in roles.items() %}<option value="{{ k }}" {% if v.rol == k %}selected{% endif %}>{{ t }}</option>{% endfor %}
+                    {% if v.rol and v.rol not in roles %}<option value="{{ v.rol }}" selected>{{ ROLES.get(v.rol, v.rol) }}</option>{% endif %}
+                </select></label>
+            <label class="campo">{{ 'Nueva contraseña (vacía = no cambiar)' if pid and v.tiene_clave else 'Contraseña (mínimo 8 caracteres)' }}
+                <input type="password" name="clave" minlength="8" maxlength="200" autocomplete="new-password"></label>
+            <label class="campo">Repite la contraseña <input type="password" name="clave2" minlength="8" maxlength="200" autocomplete="new-password"></label>
+        </div>
+        <p class="nota">El correo es el usuario de ingreso. Si quitas el acceso, la persona y todo lo relacionado con ella se conservan.</p>
+    </section>
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('usuarios.lista', ver='todos') }}">Cancelar</a>
+</form>
+{% endblock %}

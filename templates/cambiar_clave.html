@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Cambiar contraseña - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<div class="tarjeta-centro">
+    <h1>Cambiar contraseña</h1>
+    <p class="nota">{{ usuario.nombre }} · {{ usuario.correo }}</p>
+    {% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+    <form method="post" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="campo">Contraseña actual
+            <input type="password" name="actual" required maxlength="200" autocomplete="current-password">
+        </label>
+        <label class="campo">Contraseña nueva (mínimo 8 caracteres)
+            <input type="password" name="clave" required minlength="8" maxlength="200" autocomplete="new-password">
+        </label>
+        <label class="campo">Repite la contraseña nueva
+            <input type="password" name="clave2" required minlength="8" maxlength="200" autocomplete="new-password">
+        </label>
+        <button type="submit" class="grande">Guardar contraseña</button>
+    </form>
+</div>
+{% endblock %}

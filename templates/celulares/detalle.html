@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}{{ c.marca }} {{ c.modelo }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ c.marca }} {{ c.modelo }}</h1>
+<p class="nota">Situación: <b>{{ c.situacion }}</b> · <a href="{{ url_for('celulares.lista') }}">Volver al inventario</a> · {% if puede('celulares.gestionar') %}<a href="{{ url_for('celulares.formulario', cid=c.id) }}">Editar datos</a>{% endif %}</p>
+
+<section class="panel">
+    <h2>Datos del equipo</h2>
+    <dl class="datos">
+        <dt>Fecha de compra</dt><dd>{{ c.fecha_compra or '—' }}</dd>
+        <dt>Antigüedad</dt><dd>{{ c.antiguedad or '—' }}{% if c.anios is not none %} ({{ c.anios }} año{{ '' if c.anios == 1 else 's' }}){% endif %}</dd>
+        <dt>IMEI 1</dt><dd>{{ c.imei1 or '—' }}</dd>
+        <dt>IMEI 2</dt><dd>{{ c.imei2 or '—' }}</dd>
+        <dt>SN</dt><dd>{{ c.sn or '—' }}</dd>
+        <dt>Firma / Acta</dt><dd>{{ ACTAS[c.acta] }}</dd>
+        <dt>Línea asignada</dt><dd>{{ c.linea or '—' }}</dd>
+        <dt>Operador</dt><dd>{{ c.operador or '—' }}</dd>
+        <dt>Valor del plan</dt><dd>{{ c.valor_plan|cop }}</dd>
+        <dt>Usuario actual</dt><dd>{{ c.usuario_actual or '—' }}</dd>
+        <dt>Usuario anterior</dt><dd>{{ c.usuario_anterior or '—' }}</dd>
+        <dt>Observaciones</dt><dd>{{ c.observaciones or '—' }}</dd>
+        {% if c.estado == 'baja' %}
+        <dt>Baja</dt><dd>{{ c.baja_fecha }} · {{ MOTIVOS_BAJA.get(c.baja_motivo, c.baja_motivo) }}{% if c.baja_nota %} · {{ c.baja_nota }}{% endif %}</dd>
+        {% endif %}
+    </dl>
+</section>
+
+{% if c.estado == 'activo' and puede('celulares.gestionar') %}
+<section class="panel">
+    <h2>Reasignar celular</h2>
+    <p class="nota">Registra la rotación: el usuario actual pasa a ser el «usuario anterior». Déjalo vacío para devolver el celular y que quede disponible.</p>
+    <form method="post" action="{{ url_for('celulares.reasignar', cid=c.id) }}" class="filtros" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="campo">Nuevo usuario <input type="text" name="usuario_nuevo" maxlength="150" list="l-usuarios"></label>
+        <label class="campo">Fecha del movimiento <input type="date" name="fecha" value="{{ hoy }}" max="{{ hoy }}" required></label>
+        <label class="campo">Nota <input type="text" name="nota" maxlength="300" placeholder="Ej.: cambio de cargo, acta firmada"></label>
+        <div class="acciones"><button type="submit">Registrar movimiento</button></div>
+    </form>
+    <datalist id="l-usuarios">{% for p in personas %}<option value="{{ p.etiqueta }}">{% endfor %}</datalist>
+</section>
+<section class="panel">
+    <h2>Dar de baja</h2>
+    <form method="post" action="{{ url_for('celulares.baja', cid=c.id) }}" class="filtros">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="campo">Fecha de baja <input type="date" name="fecha" value="{{ hoy }}" max="{{ hoy }}" required></label>
+        <label class="campo">Motivo
+            <select name="motivo" required>{% for k, t in MOTIVOS_BAJA.items() %}<option value="{{ k }}">{{ t }}</option>{% endfor %}</select></label>
+        <label class="campo">Detalle <input type="text" name="nota" maxlength="300"></label>
+        <div class="acciones"><button type="submit" class="peligro">Dar de baja</button></div>
+    </form>
+    <p class="nota">La baja no borra nada: el celular y su historial quedan en «Dados de baja».</p>
+</section>
+{% elif c.estado == 'baja' and puede('celulares.reactivar') %}
+<section class="panel">
+    <h2>Reactivar</h2>
+    <form method="post" action="{{ url_for('celulares.reactivar', cid=c.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="secundario">Volver al inventario como disponible</button>
+    </form>
+</section>
+{% endif %}
+
+<section class="panel">
+    <h2>Historial de movimientos</h2>
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Fecha</th><th>Movimiento</th><th>De</th><th>A</th><th>Nota</th><th>Registró</th></tr></thead>
+        <tbody>{% for m in movs %}
+        <tr><td>{{ m.fecha }}</td><td>{{ TIPOS_MOV.get(m.tipo, m.tipo) }}</td><td>{{ m.usuario_anterior or '—' }}</td><td>{{ m.usuario_nuevo or '—' }}</td><td>{{ m.nota or '' }}</td><td>{{ m.registrado_por or '' }}</td></tr>
+        {% endfor %}</tbody>
+    </table></div>
+</section>
+{% endblock %}

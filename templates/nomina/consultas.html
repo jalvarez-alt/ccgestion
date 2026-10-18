@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Consultas de nómina - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Consultas de nómina</h1>
+<form method="get" class="filtros panel">
+    <label class="campo">Empleador
+        <select name="empleador"><option value="">Todos</option>{% for e in empleadores %}<option value="{{ e.id }}" {% if f.empleador_id == e.id %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}</select></label>
+    <label class="campo">Año <input type="number" name="anio" value="{{ f.anio or '' }}" min="2020" max="2100" placeholder="Todos"></label>
+    <label class="campo">Mes
+        <select name="mes"><option value="">Todos</option>{% for i in range(1, 13) %}<option value="{{ i }}" {% if f.mes == i %}selected{% endif %}>{{ MESES[i] }}</option>{% endfor %}</select></label>
+    <label class="campo">Quincena
+        <select name="quincena"><option value="">Ambas</option><option value="1" {% if f.quincena == 1 %}selected{% endif %}>1.ª</option><option value="2" {% if f.quincena == 2 %}selected{% endif %}>2.ª</option></select></label>
+    <label class="campo">Buscar empleado <input type="text" name="q" value="{{ f.buscar or '' }}" placeholder="Nombre o documento"></label>
+    <div class="acciones">
+        <button type="submit">Filtrar</button>
+        <a class="boton secundario" href="{{ url_for('nomina.consultas') }}">Limpiar</a>
+        <a class="boton verde" href="{{ url_for('nomina.exportar', empleador=f.empleador_id or '', anio=f.anio or '', mes=f.mes or '', quincena=f.quincena or '', q=f.buscar or '') }}">Exportar a Excel</a>
+    </div>
+</form>
+<p class="nota">{{ total }} liquidación{{ '' if total == 1 else 'es' }}{% if total > 500 %} (se muestran 500; el Excel trae todas){% endif %}.</p>
+{% if filas %}
+<div class="tabla-scroll"><table>
+    <thead><tr><th>Empleador</th><th>Periodo</th><th>Empleado</th><th>Devengado</th><th>Deducciones</th><th>Neto</th><th>Aportes empleador</th><th>Provisiones</th><th></th></tr></thead>
+    <tbody>{% for x in filas %}
+    <tr><td>{{ x.empleador }}</td><td>{{ x.anio }}-{{ '%02d' % x.mes }} Q{{ x.quincena }}</td><td>{{ x.nombre }}<br><small class="nota">{{ x.num_id }}</small></td>
+        <td>{{ x.total_devengado|pesos }}</td><td>{{ x.total_deducciones|pesos }}</td><td><b>{{ x.neto|pesos }}</b></td><td>{{ x.aportes_empleador|pesos }}</td><td>{{ x.provisiones|pesos }}</td>
+        <td><a href="{{ url_for('nomina.liquidacion', lid=x.id) }}">Detalle</a></td></tr>
+    {% endfor %}
+    <tr><td colspan="3"><b>Totales</b></td><td><b>{{ tot.total_devengado|pesos }}</b></td><td><b>{{ tot.total_deducciones|pesos }}</b></td><td><b>{{ tot.neto|pesos }}</b></td><td><b>{{ tot.aportes_empleador|pesos }}</b></td><td><b>{{ tot.provisiones|pesos }}</b></td><td></td></tr>
+    </tbody>
+</table></div>
+{% endif %}
+{% endblock %}

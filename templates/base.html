@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}C&amp;C Gestión{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700;800&family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% block clase %}{% endblock %}">
+    <header>
+        <a href="{{ url_for('inicio') }}" class="marca"><img class="logo-img" src="{{ logo_url }}" alt="C&amp;C Gestión" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="logo" style="display:none">C&amp;C Gestión</span></a>
+        {% if usuario %}
+        <label for="menu-toggle" class="hamburguesa" aria-label="Abrir menú">&#9776;</label>
+        <form method="post" action="{{ url_for('logout') }}" class="en-linea salir">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <span class="quien">{{ usuario.nombre.split(' ')[0] }} · {{ ROLES[usuario.rol] }}</span>
+            <button type="submit" class="enlace">Salir</button>
+        </form>
+        {% endif %}
+    </header>
+    {% set ep = request.endpoint or '' %}
+    {% set rol = usuario.rol if usuario else '' %}
+    {% set g_sgcs = ep in ('sgcs', 'formulario', 'registro_listo', 'registros', 'registro_detalle', 'exportar') %}
+    {% set g_nom = ep.startswith('nomina.') %}
+    {% set g_cel = ep.startswith('celulares.') %}
+    {% set g_eq = ep.startswith('equipos.') %}
+    {% set g_tec = ep.startswith(('celulares.', 'equipos.', 'tecnologia')) %}
+    {% set g_usr = ep.startswith(('usuarios.', 'roles')) %}
+    <div class="cuerpo">
+        {% if usuario %}
+        <input type="checkbox" id="menu-toggle" class="menu-check" hidden>
+        <aside class="menu" aria-label="Menú principal">
+            <a class="m-item {% if ep == 'inicio' %}activo{% endif %}" href="{{ url_for('inicio') }}">Inicio</a>
+
+            {% if puede_alguno('sgcs.formulario', 'sgcs.consultar', 'sgcs.exportar') %}
+            <details class="m-grupo"{% if g_sgcs %} open{% endif %}>
+                <summary><a href="{{ url_for('sgcs') }}" class="m-tit">S.G.C.S.</a></summary>
+                <details class="m-sub-g"{% if g_sgcs %} open{% endif %}>
+                    <summary>P01FOR007</summary>
+                    {% if puede('sgcs.formulario') %}<a class="m-item {% if ep in ('formulario', 'registro_listo') %}activo{% endif %}" href="{{ url_for('formulario') }}">Diligenciar formulario</a>{% endif %}
+                    {% if puede('sgcs.consultar') %}<a class="m-item {% if ep in ('registros', 'registro_detalle') %}activo{% endif %}" href="{{ url_for('registros') }}">{% if puede('sgcs.todos') %}Consultar registros{% else %}Consultar mis registros{% endif %}</a>{% endif %}
+                    {% if puede('sgcs.exportar') %}<a class="m-item {% if ep == 'exportar' %}activo{% endif %}" href="{{ url_for('exportar') }}">Exportar a Excel</a>{% endif %}
+                </details>
+            </details>
+            {% endif %}
+
+            {% if puede('nomina.gestionar') %}
+            <details class="m-grupo"{% if g_nom %} open{% endif %}>
+                <summary>Nómina</summary>
+                <a class="m-item {% if ep == 'nomina.panel' %}activo{% endif %}" href="{{ url_for('nomina.panel') }}">Resumen</a>
+                <a class="m-item {% if ep in ('nomina.periodos', 'nomina.periodo', 'nomina.liquidacion') %}activo{% endif %}" href="{{ url_for('nomina.periodos') }}">Periodos y liquidación</a>
+                <a class="m-item {% if ep in ('nomina.consultas', 'nomina.exportar') %}activo{% endif %}" href="{{ url_for('nomina.consultas') }}">Consultas y Excel</a>
+                <a class="m-item {% if ep in ('nomina.empleador', 'nomina.empleador_form', 'nomina.empleado_form') %}activo{% endif %}" href="{{ url_for('nomina.empleador_form') }}">Nuevo empleador</a>
+                <a class="m-item {% if ep in ('nomina.parametros', 'nomina.parametro_form') %}activo{% endif %}" href="{{ url_for('nomina.parametros') }}">Parámetros legales</a>
+            </details>
+            {% endif %}
+
+            {% if puede_alguno('celulares.consultar', 'equipos.consultar') %}
+            <details class="m-grupo"{% if g_tec %} open{% endif %}>
+                <summary><a href="{{ url_for('tecnologia') }}" class="m-tit">Administración Tecnológica</a></summary>
+                {% if puede('celulares.consultar') %}
+                <details class="m-sub-g"{% if g_cel %} open{% endif %}>
+                <summary>Celulares</summary>
+                <a class="m-item {% if ep in ('celulares.lista', 'celulares.detalle') and request.args.get('estado') != 'baja' %}activo{% endif %}" href="{{ url_for('celulares.lista') }}">Inventario</a>
+                {% if puede('celulares.gestionar') %}<a class="m-item {% if ep == 'celulares.formulario' %}activo{% endif %}" href="{{ url_for('celulares.formulario') }}">Nuevo celular</a>{% endif %}
+                <a class="m-item" href="{{ url_for('celulares.lista', estado='baja') }}">Dados de baja</a>
+                {% if puede('celulares.gestionar') %}<a class="m-item {% if ep == 'celulares.importar' %}activo{% endif %}" href="{{ url_for('celulares.importar') }}">Cargar desde archivo</a>{% endif %}
+                <a class="m-item {% if ep == 'celulares.exportar' %}activo{% endif %}" href="{{ url_for('celulares.exportar') }}">Exportar a Excel</a>
+                </details>
+                {% endif %}
+                {% if puede('equipos.consultar') %}
+                <details class="m-sub-g"{% if g_eq %} open{% endif %}>
+                <summary>Equipos de cómputo</summary>
+                <a class="m-item {% if ep in ('equipos.lista', 'equipos.detalle') %}activo{% endif %}" href="{{ url_for('equipos.lista') }}">Inventario</a>
+                {% if puede('equipos.gestionar') %}<a class="m-item {% if ep == 'equipos.formulario' %}activo{% endif %}" href="{{ url_for('equipos.formulario') }}">Nuevo equipo</a>{% endif %}
+                {% if puede('equipos.gestionar') %}<a class="m-item {% if ep == 'equipos.importar' %}activo{% endif %}" href="{{ url_for('equipos.importar') }}">Cargar desde archivo</a>{% endif %}
+                <a class="m-item {% if ep == 'equipos.exportar' %}activo{% endif %}" href="{{ url_for('equipos.exportar') }}">Exportar a Excel</a>
+                </details>
+                {% endif %}
+            </details>
+            {% endif %}
+
+            {% if puede('personas.consultar') %}
+            <details class="m-grupo"{% if g_usr %} open{% endif %}>
+                <summary><a href="{{ url_for('usuarios.lista') }}" class="m-tit">Usuarios</a></summary>
+                <a class="m-item {% if ep == 'usuarios.lista' and request.args.get('ver') != 'todos' %}activo{% endif %}" href="{{ url_for('usuarios.lista', ver='app') }}">Usuarios de la aplicación</a>
+                <a class="m-item {% if ep == 'usuarios.lista' and request.args.get('ver') == 'todos' %}activo{% endif %}" href="{{ url_for('usuarios.lista', ver='todos') }}">Todos los usuarios</a>
+                {% if puede('personas.gestionar') %}<a class="m-item {% if ep == 'usuarios.formulario' %}activo{% endif %}" href="{{ url_for('usuarios.formulario') }}">Nueva persona</a>
+                {% if puede('personas.gestionar') %}<a class="m-item {% if ep == 'usuarios.importar' %}activo{% endif %}" href="{{ url_for('usuarios.importar') }}">Cargar desde archivo</a>{% endif %}{% endif %}
+                {% if usuario.rol == 'administrador' %}<a class="m-item {% if ep == 'usuarios.roles' %}activo{% endif %}" href="{{ url_for('usuarios.roles') }}">Roles y permisos</a>{% endif %}
+            </details>
+            {% endif %}
+
+            <a class="m-item m-suelto {% if ep == 'cambiar_clave' %}activo{% endif %}" href="{{ url_for('cambiar_clave') }}">Cambiar mi contraseña</a>
+        </aside>
+        <label for="menu-toggle" class="menu-velo"></label>
+        {% endif %}
+        <main>
+            {% for m in get_flashed_messages() %}<div class="aviso">{{ m }}</div>{% endfor %}
+            {% block contenido %}{% endblock %}
+        </main>
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

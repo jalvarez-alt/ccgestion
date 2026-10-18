@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Equipo - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar equipo' if eid else 'Nuevo equipo' }}</h1>
+{% if errores %}<div class="errores"><ul>{% for x in errores %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="panel" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="grid">
+        <label class="campo">ID de inventario <input type="text" name="codigo" value="{{ v.codigo or '' }}" required maxlength="30"></label>
+        <label class="campo">Tipo de equipo
+            <select name="tipo" id="tipo" required><option value="">Elige…</option>{% for k, t in TIPOS_EQ.items() %}<option value="{{ k }}" {% if v.tipo == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+        <label class="campo">Marca <input type="text" name="marca" value="{{ v.marca or '' }}" maxlength="60"></label>
+        <label class="campo">Modelo <input type="text" name="modelo" value="{{ v.modelo or '' }}" maxlength="80"></label>
+        <label class="campo">Serial <input type="text" name="serial" value="{{ v.serie or '' }}" maxlength="60"></label>
+        <label class="campo">Estado
+            <select name="estado">{% for k, t in ESTADOS_EQ.items() %}<option value="{{ k }}" {% if v.estado == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+        <label class="campo ancho">Usuario asignado (de la base única de usuarios)
+            <input type="text" name="usuario" value="{{ v.usuario_txt or '' }}" list="l-personas" placeholder="Escribe el nombre o documento y elige de la lista; vacío = sin asignar">
+            {% if puede('personas.gestionar') %}<small>¿No está? <a href="{{ url_for('usuarios.formulario') }}">Créala primero en Usuarios</a>.</small>{% endif %}</label>
+        <label class="campo">Ciudad <input type="text" name="ciudad" value="{{ v.ciudad or '' }}" maxlength="100" list="l-ciudades"></label>
+    </div>
+    <div class="grid solo-computo" id="bloque-computo">
+        <label class="campo">Procesador <input type="text" name="procesador" value="{{ v.procesador or '' }}" maxlength="100" placeholder="Ej.: Intel Core i5-1235U"></label>
+        <label class="campo">Memoria RAM (GB) <input type="text" name="ram_gb" value="{{ v.ram_gb if v.ram_gb is not none and v.ram_gb is defined else '' }}" placeholder="16"></label>
+        <label class="campo">Almacenamiento SSD (GB) <input type="text" name="ssd_gb" value="{{ v.ssd_gb if v.ssd_gb is not none and v.ssd_gb is defined else '' }}" placeholder="512 o 1 TB"></label>
+        <label class="campo">Sistema operativo <input type="text" name="sistema_operativo" value="{{ v.sistema_operativo or '' }}" maxlength="100" placeholder="Windows 11 Pro"></label>
+        <label class="campo">Microsoft Office <input type="text" name="office" value="{{ v.office or '' }}" maxlength="100" placeholder="Microsoft 365 / Office 2021 / No tiene"></label>
+        <label class="campo">Antivirus <input type="text" name="antivirus" value="{{ v.antivirus or '' }}" maxlength="100" placeholder="Windows Defender, ESET…"></label>
+    </div>
+    <div class="grid"><label class="campo ancho">Observaciones <textarea name="observaciones" rows="3" maxlength="2000">{{ v.observaciones or '' }}</textarea></label></div>
+    <datalist id="l-personas">{% for p in personas %}<option value="{{ p.etiqueta }}">{% endfor %}</datalist>
+    <datalist id="l-ciudades">{% for c in ciudades %}<option value="{{ c }}">{% endfor %}</datalist>
+    <p class="nota">Procesador, RAM, SSD, sistema operativo, Office y antivirus aplican a portátiles, escritorios, todo en uno y servidores.</p>
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('equipos.detalle', eid=eid) if eid else url_for('equipos.lista') }}">Cancelar</a>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var COMPUTO = {{ COMPUTO|tojson }};
+    var tipo = document.getElementById('tipo'), bloque = document.getElementById('bloque-computo');
+    function ver() { bloque.style.display = (!tipo.value || COMPUTO.indexOf(tipo.value) >= 0) ? '' : 'none'; }
+    tipo.addEventListener('change', ver); ver();
+})();
+</script>
+{% endblock %}

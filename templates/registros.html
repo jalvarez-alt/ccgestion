@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}Registros - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{% if puede('sgcs.todos') %}Registros diligenciados{% else %}Mis registros{% endif %}</h1>
+<form method="get" class="filtros panel">
+    <label class="campo">Buscar
+        <input type="text" name="q" value="{{ filtros.q or '' }}" maxlength="100" placeholder="Nombre o identificación">
+    </label>
+    <label class="campo">Tipo de persona
+        <select name="tipo">
+            <option value="">Todos</option>
+            <option value="natural" {% if filtros.tipo == 'natural' %}selected{% endif %}>Persona Natural</option>
+            <option value="juridica" {% if filtros.tipo == 'juridica' %}selected{% endif %}>Persona Jurídica</option>
+        </select>
+    </label>
+    <label class="campo">Desde <input type="date" name="desde" value="{{ filtros.desde or '' }}"></label>
+    <label class="campo">Hasta <input type="date" name="hasta" value="{{ filtros.hasta or '' }}"></label>
+    <div class="acciones">
+        <button type="submit">Filtrar</button>
+        <a class="boton secundario" href="{{ url_for('registros') }}">Limpiar</a>
+        {% if puede('sgcs.exportar') %}
+        <a class="boton verde" href="{{ url_for('exportar', q=filtros.q, tipo=filtros.tipo, desde=filtros.desde, hasta=filtros.hasta) }}">Exportar a Excel</a>
+        {% endif %}
+    </div>
+</form>
+<p class="nota">{{ total }} registro{{ '' if total == 1 else 's' }}.</p>
+{% if filas %}
+<div class="tabla-scroll">
+<table>
+    <thead><tr>
+        <th>ID</th><th>Fecha</th><th>Tipo</th><th>Nombre / Razón social</th><th>Identificación</th>
+        <th>Solicitud</th>{% if puede('sgcs.todos') %}<th>Registrado por</th>{% endif %}<th></th>
+    </tr></thead>
+    <tbody>
+    {% for f in filas %}
+    <tr>
+        <td>{{ f.id }}</td>
+        <td>{{ mostrar('fecha_diligenciamiento', f.fecha_diligenciamiento) }}</td>
+        <td>{{ mostrar('tipo_persona', f.tipo_persona) }}</td>
+        <td>{{ f.nombre or '—' }}</td>
+        <td>{{ f.identificacion or '—' }}</td>
+        <td>{{ mostrar('solicitud', f.solicitud) }}</td>
+        {% if puede('sgcs.todos') %}<td>{{ f.registrado_por or '—' }}</td>{% endif %}
+        <td class="acciones-fila">
+            <a href="{{ url_for('registro_detalle', rid=f.id) }}">Ver</a>
+            <a href="{{ url_for('registro_pdf', rid=f.id) }}">PDF</a>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if paginas > 1 %}
+<p class="paginas">
+    {% if pagina > 1 %}<a href="{{ url_for('registros', pagina=pagina-1, q=filtros.q, tipo=filtros.tipo, desde=filtros.desde, hasta=filtros.hasta) }}">&larr; Anterior</a>{% endif %}
+    Página {{ pagina }} de {{ paginas }}
+    {% if pagina < paginas %}<a href="{{ url_for('registros', pagina=pagina+1, q=filtros.q, tipo=filtros.tipo, desde=filtros.desde, hasta=filtros.hasta) }}">Siguiente &rarr;</a>{% endif %}
+</p>
+{% endif %}
+{% else %}
+<p class="vacio">No hay registros con estos criterios.</p>
+{% endif %}
+{% endblock %}

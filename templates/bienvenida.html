@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}C&amp;C Gestión{% endblock %}
+{% block clase %}entrada{% endblock %}
+{% block contenido %}
+<section class="panel bienvenida">
+    <h1>Bienvenido</h1>
+    <p>Elige cómo quieres continuar.</p>
+    <a class="boton" href="{{ url_for('login') }}">Ingresar a la aplicación de gestión</a>
+    {% if permitir_registro %}
+    <a class="boton verde" href="{{ url_for('registro_usuario') }}">Diligenciar formato de vinculación</a>
+    <small>Para el formato necesitas crear una cuenta primero.</small>
+    {% endif %}
+</section>
+{% endblock %}

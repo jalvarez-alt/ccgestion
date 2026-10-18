@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block titulo %}{{ e.codigo }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ e.codigo }} · {{ TIPOS_EQ[e.tipo] }}</h1>
+<p class="nota"><a href="{{ url_for('equipos.lista') }}">Volver al inventario</a>{% if puede('equipos.gestionar') %} · <a href="{{ url_for('equipos.formulario', eid=e.id) }}">Editar datos</a>{% endif %}</p>
+<section class="panel">
+    <h2>Datos del equipo</h2>
+    <dl class="datos">
+        <dt>Marca / modelo</dt><dd>{{ e.marca or '—' }} {{ e.modelo or '' }}</dd>
+        <dt>Serial</dt><dd>{{ e.serie or '—' }}</dd>
+        <dt>Estado</dt><dd>{{ ESTADOS_EQ[e.estado] }}</dd>
+        <dt>Usuario asignado</dt><dd>{{ e.usuario or '—' }}{% if e.usuario_doc %} ({{ e.usuario_doc }}){% endif %}</dd>
+        <dt>Ciudad</dt><dd>{{ e.ciudad or '—' }}</dd>
+        {% if e.es_computo %}
+        <dt>Procesador</dt><dd>{{ e.procesador or '—' }}</dd>
+        <dt>Memoria RAM</dt><dd>{{ (e.ram_gb|string + ' GB') if e.ram_gb is not none else '—' }}</dd>
+        <dt>Almacenamiento SSD</dt><dd>{{ (e.ssd_gb|string + ' GB') if e.ssd_gb is not none else '—' }}</dd>
+        <dt>Sistema operativo</dt><dd>{{ e.sistema_operativo or '—' }}</dd>
+        <dt>Microsoft Office</dt><dd>{{ e.office or '—' }}</dd>
+        <dt>Antivirus</dt><dd>{{ e.antivirus or '—' }}</dd>
+        {% endif %}
+        <dt>Observaciones</dt><dd>{{ e.observaciones or '—' }}</dd>
+    </dl>
+</section>
+
+{% if e.es_computo %}
+<section class="panel">
+    <h2>Software instalado ({{ sw|length }})</h2>
+    {% if puede('equipos.gestionar') %}
+    <form method="post" action="{{ url_for('equipos.guardar_software', eid=e.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <div class="tabla-scroll"><table id="tabla-sw">
+            <thead><tr><th>Programa</th><th>Versión</th><th>Tipo de licencia</th><th>Estado</th><th>Vence</th><th>Notas</th><th>Quitar</th></tr></thead>
+            <tbody>
+            {% for s in sw %}
+            <tr class="{{ 'vencido' if s.vencido }}"><td><input type="hidden" name="sw_id" value="{{ s.id }}"><input type="text" name="sw_nombre" value="{{ s.nombre }}" maxlength="150"></td>
+                <td><input type="text" name="sw_version" value="{{ s.version or '' }}" maxlength="60"></td>
+                <td><select name="sw_licencia"><option value="">—</option>{% for k, t in LICENCIAS.items() %}<option value="{{ k }}" {% if s.tipo_licencia == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></td>
+                <td><select name="sw_estado">{% for k, t in SW_ESTADOS.items() %}<option value="{{ k }}" {% if s.estado == k %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></td>
+                <td><input type="date" name="sw_vence" value="{{ s.vencimiento or '' }}"></td>
+                <td><input type="text" name="sw_notas" value="{{ s.notas or '' }}" maxlength="200"></td>
+                <td><input type="checkbox" name="sw_borrar" value="{{ s.id }}"></td></tr>
+            {% endfor %}
+            {% for i in range(3) %}
+            <tr class="nueva"><td><input type="hidden" name="sw_id" value=""><input type="text" name="sw_nombre" maxlength="150" placeholder="Nuevo programa"></td>
+                <td><input type="text" name="sw_version" maxlength="60"></td>
+                <td><select name="sw_licencia"><option value="">—</option>{% for k, t in LICENCIAS.items() %}<option value="{{ k }}">{{ t }}</option>{% endfor %}</select></td>
+                <td><select name="sw_estado">{% for k, t in SW_ESTADOS.items() %}<option value="{{ k }}">{{ t }}</option>{% endfor %}</select></td>
+                <td><input type="date" name="sw_vence"></td>
+                <td><input type="text" name="sw_notas" maxlength="200"></td><td></td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+        <div class="acciones">
+            <button type="submit">Guardar software</button>
+            <button type="button" class="secundario" id="mas-filas">+ Agregar más filas</button>
+        </div>
+        <p class="nota">Llena tantas filas como programas tenga el equipo. Para eliminar uno, marca «Quitar» y guarda. Los vencidos se resaltan.</p>
+    </form>
+    {% else %}
+    {% if sw %}
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Programa</th><th>Versión</th><th>Tipo de licencia</th><th>Estado</th><th>Vence</th><th>Notas</th></tr></thead>
+        <tbody>{% for s in sw %}<tr class="{{ 'vencido' if s.vencido }}"><td>{{ s.nombre }}</td><td>{{ s.version or '—' }}</td><td>{{ LICENCIAS.get(s.tipo_licencia, '—') }}</td><td>{{ SW_ESTADOS[s.estado] }}</td><td>{{ s.vencimiento or '—' }}</td><td>{{ s.notas or '' }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="nota">Sin software registrado.</p>{% endif %}
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var b = document.getElementById('mas-filas');
+    if (!b) return;
+    b.addEventListener('click', function () {
+        var cuerpo = document.querySelector('#tabla-sw tbody'), ult = cuerpo.querySelector('tr.nueva:last-child') || cuerpo.lastElementChild;
+        for (var i = 0; i < 3; i++) {
+            var f = ult.cloneNode(true);
+            f.querySelectorAll('input[type=text],input[type=date]').forEach(function (x) { x.value = ''; });
+            f.querySelectorAll('select').forEach(function (x) { x.selectedIndex = 0; });
+            cuerpo.appendChild(f);
+        }
+    });
+})();
+</script>
+{% endblock %}

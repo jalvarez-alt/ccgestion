@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Liquidación - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ l.nombre }}</h1>
+<p class="nota">{{ l.tipo_id }} {{ l.num_id }} · {{ nombre_periodo(p) }} · <a href="{{ url_for('nomina.periodo', pid=p.id) }}">Volver al periodo</a></p>
+{% for a in c.advertencias %}<div class="errores">{{ a }}</div>{% endfor %}
+<section class="panel">
+    <h2>Desprendible</h2>
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Concepto</th><th>Cant.</th><th>Devengado</th><th>Deducciones</th></tr></thead>
+        <tbody>{% for k in c.conceptos %}
+        <tr><td>{{ k.nombre }}{% if k.recobrable %} <small class="nota">(recobrable EPS/ARL)</small>{% endif %}</td><td>{{ k.cantidad if k.cantidad is not none else '' }}</td>
+            <td>{{ k.valor|pesos if k.tipo == 'devengo' else '' }}</td><td>{{ k.valor|pesos if k.tipo == 'deduccion' else '' }}</td></tr>
+        {% endfor %}
+        <tr><td><b>Totales</b></td><td></td><td><b>{{ l.total_devengado|pesos }}</b></td><td><b>{{ l.total_deducciones|pesos }}</b></td></tr>
+        <tr><td><b>Neto a pagar</b></td><td></td><td colspan="2"><b>{{ l.neto|pesos }}</b></td></tr>
+        </tbody>
+    </table></div>
+    <p class="nota">IBC del periodo: {{ l.ibc|pesos }}.</p>
+    <div class="acciones">
+        <a class="boton" href="{{ url_for('nomina.liquidacion_pdf', lid=l.id) }}" target="_blank">Ver PDF</a>
+        <form class="en-linea" method="post" action="{{ url_for('nomina.liquidacion_enviar', lid=l.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="verde" {% if not smtp or not l.email %}disabled{% endif %}>{{ 'Reenviar' if l.correo_enviado else 'Enviar' }} por correo{% if l.email %} a {{ l.email }}{% endif %}</button></form>
+    </div>
+    {% if not l.email %}<p class="nota">El empleado no tiene correo registrado.</p>{% endif %}
+    {% if l.correo_enviado %}<p class="nota">Último envío: {{ l.correo_enviado }}.</p>{% endif %}
+    {% if l.correo_error %}<p class="nota">Último error: {{ l.correo_error }}</p>{% endif %}
+</section>
+<section class="panel">
+    <h2>Aportes del empleador (no se descuentan al empleado)</h2>
+    <div class="tabla-scroll"><table><tbody>
+        {% for nombre, k in [('Pensión','pension'),('Salud','salud'),('ARL','arl'),('Caja de compensación','caja'),('SENA','sena'),('ICBF','icbf'),('Total','total')] %}
+        <tr><td>{{ nombre }}</td><td>{{ c.aportes[k]|pesos }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <h2>Provisiones de prestaciones sociales</h2>
+    <div class="tabla-scroll"><table><tbody>
+        {% for nombre, k in [('Prima de servicios','prima'),('Cesantías','cesantias'),('Intereses sobre cesantías','intereses'),('Vacaciones','vacaciones'),('Total','total')] %}
+        <tr><td>{{ nombre }}</td><td>{{ c.provisiones[k]|pesos }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <p class="nota">Las provisiones son una estimación contable mensual prorrateada; el pago real de prima, cesantías y vacaciones no se liquida aquí.</p>
+</section>
+{% endblock %}

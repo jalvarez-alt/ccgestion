@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<div class="tarjeta-centro">
+    <h1>{{ titulo }}</h1>
+    {% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+    <form method="post" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        {% if trampa %}<input type="text" name="web" class="trampa" tabindex="-1" autocomplete="off" aria-hidden="true">{% endif %}
+        <label class="campo">Nombre completo
+            <input type="text" name="nombre" value="{{ v.get('nombre', '') }}" required maxlength="200">
+        </label>
+        <label class="campo">Correo electrónico
+            <input type="email" name="correo" value="{{ v.get('correo', '') }}" required maxlength="190">
+        </label>
+        <label class="campo">Contraseña (mínimo 8 caracteres)
+            <input type="password" name="clave" required minlength="8" maxlength="200">
+        </label>
+        <label class="campo">Repite la contraseña
+            <input type="password" name="clave2" required minlength="8" maxlength="200">
+        </label>
+        <button type="submit" class="grande">{{ boton }}</button>
+    </form>
+    {% if not usuario %}<p class="nota"><a href="{{ url_for('login') }}">Ya tengo cuenta</a></p>{% endif %}
+</div>
+{% endblock %}

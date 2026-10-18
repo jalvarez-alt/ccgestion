@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}Inventario de celulares - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Inventario de celulares</h1>
+<div class="tarjetas resumen">
+    <div class="tarjeta"><strong>{{ r.activos }}</strong><span>Activos</span></div>
+    <div class="tarjeta"><strong>{{ r.asignados }}</strong><span>Asignados</span></div>
+    <div class="tarjeta"><strong>{{ r.disponibles }}</strong><span>Disponibles</span></div>
+    <div class="tarjeta"><strong>{{ r.bajas }}</strong><span>Dados de baja</span></div>
+    <div class="tarjeta"><strong>{{ r.plan_total|cop }}</strong><span>Valor mensual de planes (activos)</span></div>
+</div>
+<form method="get" class="filtros panel">
+    <label class="campo">Buscar <input type="text" name="q" value="{{ f.q or '' }}" maxlength="100" placeholder="Marca, modelo, IMEI, SN, línea o usuario"></label>
+    <label class="campo">Situación
+        <select name="estado">
+            {% for k, t in [('activos','Activos (asignados y disponibles)'),('asignado','Asignados'),('disponible','Disponibles'),('baja','Dados de baja'),('todos','Todos')] %}
+            <option value="{{ k }}" {% if f.estado == k %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select></label>
+    <label class="campo">Marca
+        <select name="marca"><option value="">Todas</option>{% for m in marcas %}<option {% if f.marca == m %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></label>
+    <label class="campo">Operador
+        <select name="operador"><option value="">Todos</option>{% for o in operadores %}<option {% if f.operador == o %}selected{% endif %}>{{ o }}</option>{% endfor %}</select></label>
+    <div class="acciones">
+        <button type="submit">Filtrar</button>
+        <a class="boton secundario" href="{{ url_for('celulares.lista') }}">Limpiar</a>
+        {% if puede('celulares.gestionar') %}<a class="boton verde" href="{{ url_for('celulares.formulario') }}">Nuevo celular</a>
+        <a class="boton secundario" href="{{ url_for('celulares.importar') }}">Cargar desde archivo</a>{% endif %}
+        <a class="boton verde" href="{{ url_for('celulares.exportar', q=f.q or '', estado=f.estado, marca=f.marca or '', operador=f.operador or '') }}">Exportar a Excel</a>
+    </div>
+</form>
+<p class="nota">{{ filas|length }} celular{{ '' if filas|length == 1 else 'es' }}.</p>
+{% if filas %}
+<div class="tabla-scroll"><table>
+    <thead><tr><th>Celular</th><th>IMEI 1</th><th>Línea / operador</th><th>Usuario actual</th><th>Usuario anterior</th><th>Compra</th><th>Antigüedad</th><th>Acta</th><th>Plan</th><th>Situación</th><th></th></tr></thead>
+    <tbody>{% for c in filas %}
+    <tr><td><b>{{ c.marca }}</b> {{ c.modelo }}</td><td>{{ c.imei1 or '—' }}</td>
+        <td>{{ c.linea or '—' }}<br><small class="nota">{{ c.operador or '' }}</small></td>
+        <td>{{ c.usuario_actual or '—' }}</td><td>{{ c.usuario_anterior or '—' }}</td>
+        <td style="white-space:nowrap">{{ c.fecha_compra or "—" }}</td><td>{{ c.antiguedad or '—' }}</td><td>{{ ACTAS[c.acta] }}</td>
+        <td>{{ c.valor_plan|cop }}</td><td>{{ c.situacion }}</td>
+        <td><a href="{{ url_for('celulares.detalle', cid=c.id) }}">Ver</a></td></tr>
+    {% endfor %}</tbody>
+</table></div>
+{% else %}<p class="nota">No hay celulares con estos filtros.</p>{% endif %}
+{% endblock %}

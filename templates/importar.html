@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ titulo }}</h1>
+<p class="nota">{{ descripcion }}</p>
+{% for m in get_flashed_messages() %}<div class="errores">{{ m }}</div>{% endfor %}
+
+{% if res %}
+<div class="panel">
+    <h2>{{ 'Resultado de la carga' if guardado else 'Validación (no se guardó nada)' }}</h2>
+    <p><strong>{{ res.creadas }}</strong> {{ 'creado' if res.creadas == 1 else 'creados' }},
+       <strong>{{ res.actualizadas }}</strong> {{ 'actualizado' if res.actualizadas == 1 else 'actualizados' }},
+       {{ res.sin_cambios }} sin cambios y <strong>{{ res.errores|length }}</strong> con errores{% if res.errores %} (no se cargaron){% endif %}.
+       {% for x in res.extra %}<br>{{ x }}.{% endfor %}</p>
+    {% if res.errores %}
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Hoja</th><th>Fila</th><th>Registro</th><th>Problema</th></tr></thead>
+        <tbody>{% for h, f, n, e in res.errores %}<tr><td>{{ h }}</td><td>{{ f }}</td><td>{{ n }}</td><td>{{ e }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="nota">Corrige esas filas en el archivo y vuelve a subirlo: lo ya cargado no se duplica.</p>
+    {% endif %}
+    {% if not guardado %}<p class="nota">Si todo está bien, vuelve a subir el archivo sin marcar «Solo validar».</p>{% endif %}
+    <div class="acciones"><a class="boton" href="{{ volver }}">Ver inventario</a></div>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="panel">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h2>Subir archivo</h2>
+    <label class="campo ancho">Archivo (.xlsx o .csv, máx. 1 MB)
+        <input type="file" name="archivo" accept=".xlsx,.csv,.txt" required>
+    </label>
+    <label class="chk"><input type="checkbox" name="solo_validar" value="1"> Solo validar (no guardar, para revisar errores primero)</label>
+    <div class="acciones" style="margin-top:12px">
+        <button type="submit">Cargar</button>
+        <a class="boton secundario" href="{{ plantilla }}">Descargar plantilla</a>
+        <a class="boton secundario" href="{{ volver }}">Volver</a>
+    </div>
+    <h3>Columnas</h3>
+    <p class="nota">{{ columnas }}</p>
+</form>
+{% endblock %}

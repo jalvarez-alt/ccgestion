@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Cargar personas - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Cargar personas desde un archivo</h1>
+<p class="nota">Sube un Excel (.xlsx) o CSV con los empleados. Se crean en la base única de personas, <strong>sin acceso</strong> a la aplicación; después puedes habilitar el acceso a quien corresponda.</p>
+{% for m in get_flashed_messages() %}<div class="errores">{{ m }}</div>{% endfor %}
+
+{% if res %}
+<div class="panel">
+    <h2>{{ 'Resultado de la carga' if guardado else 'Validación (no se guardó nada)' }}</h2>
+    <p>{{ total }} fila{{ '' if total == 1 else 's' }} leída{{ '' if total == 1 else 's' }}:
+       <strong>{{ res.creadas }}</strong> {{ 'creada' if res.creadas == 1 else 'creadas' }},
+       <strong>{{ res.actualizadas }}</strong> {{ 'actualizada' if res.actualizadas == 1 else 'actualizadas' }},
+       {{ res.sin_cambios }} sin cambios y
+       <strong>{{ res.errores|length }}</strong> con errores{% if res.errores %} (no se cargaron){% endif %}.</p>
+    {% if res.errores %}
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Fila</th><th>Nombre</th><th>Problema</th></tr></thead>
+        <tbody>{% for f, n, e in res.errores %}<tr><td>{{ f }}</td><td>{{ n }}</td><td>{{ e }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="nota">Corrige esas filas en el archivo y vuelve a subirlo: las personas ya cargadas no se duplican.</p>
+    {% endif %}
+    {% if not guardado %}<p class="nota">Si todo está bien, vuelve a subir el archivo sin marcar «Solo validar».</p>{% endif %}
+    <div class="acciones">
+        <a class="boton" href="{{ url_for('usuarios.lista', ver='todos') }}">Ver todos los usuarios</a>
+    </div>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="panel">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h2>Subir archivo</h2>
+    <label class="campo ancho">Archivo (.xlsx o .csv, máx. 1 MB)
+        <input type="file" name="archivo" accept=".xlsx,.csv,.txt" required>
+    </label>
+    <label class="chk"><input type="checkbox" name="solo_validar" value="1"> Solo validar (no guardar, para revisar errores primero)</label>
+    <div class="acciones" style="margin-top:12px">
+        <button type="submit">Cargar</button>
+        <a class="boton secundario" href="{{ url_for('usuarios.plantilla_importar') }}">Descargar plantilla</a>
+        <a class="boton secundario" href="{{ url_for('usuarios.lista', ver='todos') }}">Volver</a>
+    </div>
+    <h3>Columnas</h3>
+    <p class="nota">Nombre (obligatorio) · Tipo de documento · Número de documento · Correo · Teléfono · Cargo · Ciudad · Fecha de ingreso (opcional).
+       Si la persona ya existe (mismo documento o correo) se actualizan solo los campos que traen valor.</p>
+</form>
+{% endblock %}

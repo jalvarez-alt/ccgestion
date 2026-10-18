@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block contenido %}
+<h1>Hola, {{ usuario.nombre.split(' ')[0] }}</h1>
+<p class="nota">Rol: {{ ROLES.get(usuario.rol, usuario.rol) }}</p>
+<div class="tarjetas">
+    {% if puede('nomina.gestionar') %}
+    <a class="tarjeta" href="{{ url_for('nomina.panel') }}">
+        <strong>Nómina</strong>
+        <span>Empleadores, empleados, liquidación quincenal, Excel y envío de desprendibles por correo.</span>
+    </a>
+    {% endif %}
+    {% if puede_alguno('sgcs.formulario', 'sgcs.consultar', 'sgcs.exportar') %}
+    <a class="tarjeta" href="{{ url_for('sgcs') }}">
+        <strong>S.G.C.S.</strong>
+        <span>{% if puede('sgcs.exportar') %}Diligenciar formulario, consultar registros y exportar a Excel.{% else %}Diligencia el formulario de vinculación y consulta tus registros.{% endif %}</span>
+    </a>
+    {% endif %}
+    {% if puede_alguno('celulares.consultar', 'equipos.consultar') %}
+    <a class="tarjeta" href="{{ url_for('tecnologia') }}">
+        <strong>Administración Tecnológica</strong>
+        <span>Inventario de celulares y equipos de cómputo, con asignaciones, software y Excel.</span>
+    </a>
+    {% endif %}
+    {% if puede('personas.consultar') %}
+    <a class="tarjeta" href="{{ url_for('usuarios.lista') }}">
+        <strong>Usuarios</strong>
+        <span>Base única de personas, acceso a la aplicación{% if usuario.rol == 'administrador' %}, roles y permisos{% endif %}.</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

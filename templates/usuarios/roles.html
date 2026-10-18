@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titulo %}Roles y permisos - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<p><a href="{{ url_for('usuarios.lista') }}">&larr; Usuarios</a></p>
+<h1>Roles y permisos</h1>
+<p class="nota">Cada persona tiene un rol; lo que ve y puede hacer depende de los permisos marcados en su rol. El rol Administrador siempre tiene todos.</p>
+{% if errores %}<div class="errores"><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+
+{% for r in roles %}
+<section class="panel" id="r-{{ r.clave }}">
+    <form method="post">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="rol" value="{{ r.clave }}">
+        <h2>{{ r.nombre }} <small class="nota">· {{ r.n_usuarios }} persona{{ '' if r.n_usuarios == 1 else 's' }}{% if r.sistema %} · rol base{% endif %}</small></h2>
+        {% if r.clave == ADMIN %}
+        <p class="nota">Todos los permisos (no editable).</p>
+        {% else %}
+        <div class="grid">
+            <label class="campo">Nombre <input type="text" name="nombre" value="{{ r.nombre }}" maxlength="60"></label>
+            <label class="campo ancho">Descripción <input type="text" name="descripcion" value="{{ r.descripcion or '' }}" maxlength="200"></label>
+        </div>
+        {% for modulo, items in grupos.items() %}
+        <fieldset class="permisos"><legend>{{ modulo }}</legend>
+            {% for k, desc in items %}
+            <label class="chk"><input type="checkbox" name="permiso" value="{{ k }}" {% if k in r.permisos %}checked{% endif %}> {{ desc }}</label>
+            {% endfor %}
+        </fieldset>
+        {% endfor %}
+        <div class="acciones">
+            <button type="submit" name="accion" value="guardar">Guardar permisos</button>
+            {% if not r.sistema %}<button type="submit" name="accion" value="eliminar" class="peligro">Eliminar rol</button>{% endif %}
+        </div>
+        {% endif %}
+    </form>
+</section>
+{% endfor %}
+
+<section class="panel">
+    <h2>Crear un rol nuevo</h2>
+    <form method="post" class="filtros">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="accion" value="crear">
+        <label class="campo">Nombre del rol <input type="text" name="nombre" required maxlength="60" placeholder="Ej.: Soporte TI"></label>
+        <label class="campo">Descripción <input type="text" name="descripcion" maxlength="200"></label>
+        <div class="acciones"><button type="submit">Crear rol</button></div>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Empleado - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar empleado' if mid else 'Nuevo empleado' }}</h1>
+<p class="nota">Empleador: <a href="{{ url_for('nomina.empleador', eid=e.id) }}">{{ e.nombre }}</a></p>
+{% if errores %}<div class="errores"><ul>{% for x in errores %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" class="panel" autocomplete="off">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="empleador" value="{{ e.id }}">
+    <div class="grid">
+        {% if mid %}
+        <div class="campo ancho">Persona
+            <b>{{ v.nombre }}</b> · {{ v.tipo_id or '' }} {{ v.num_id or 'sin documento' }}{% if v.email %} · {{ v.email }}{% endif %}
+            {% if puede('personas.gestionar') %}<small><a href="{{ url_for('usuarios.formulario', pid=v.usuario_id) }}">Editar los datos de la persona</a></small>{% endif %}
+        </div>
+        {% else %}
+        <label class="campo ancho">Persona (de la base única de usuarios)
+            <input type="text" name="persona" value="{{ v.persona or '' }}" list="l-personas" required placeholder="Escribe el nombre o el documento y elige de la lista">
+            <small>Nombre, documento, correo y cargo salen de Usuarios y no se vuelven a digitar. {% if puede('personas.gestionar') %}¿No está? <a href="{{ url_for('usuarios.formulario') }}">Créala primero</a>.{% endif %}</small>
+        </label>
+        <datalist id="l-personas">{% for p in personas %}<option value="{{ p.etiqueta }}">{% endfor %}</datalist>
+        {% endif %}
+        <label class="campo">Fecha de ingreso <input type="date" name="fecha_ingreso" value="{{ v.fecha_ingreso or '' }}" required></label>
+        <label class="campo">Fecha de retiro (si aplica) <input type="date" name="fecha_retiro" value="{{ v.fecha_retiro or '' }}"></label>
+        <label class="campo">Salario mensual (COP) <input type="text" inputmode="numeric" name="salario" value="{{ v.salario or '' }}" required></label>
+        <label class="campo">Nivel de riesgo ARL
+            <select name="nivel_riesgo">{% for n, t in [(1,'I - Mínimo'),(2,'II - Bajo'),(3,'III - Medio'),(4,'IV - Alto'),(5,'V - Máximo')] %}<option value="{{ n }}" {% if v.nivel_riesgo == n %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+        <label class="campo">Banco <input type="text" name="banco" value="{{ v.banco or '' }}" maxlength="100"></label>
+        <label class="campo">Cuenta <input type="text" name="cuenta" value="{{ v.cuenta or '' }}" maxlength="40"></label>
+        <label class="campo">EPS <input type="text" name="eps" value="{{ v.eps or '' }}" maxlength="100"></label>
+        <label class="campo">Fondo de pensiones <input type="text" name="afp" value="{{ v.afp or '' }}" maxlength="100"></label>
+        <label class="campo">Caja de compensación <input type="text" name="caja" value="{{ v.caja or '' }}" maxlength="100"></label>
+        <label class="campo">Estado
+            <select name="activo"><option value="1" {% if v.activo %}selected{% endif %}>Activo</option><option value="0" {% if not v.activo %}selected{% endif %}>Inactivo</option></select></label>
+    </div>
+    <button type="submit">Guardar</button> <a class="boton secundario" href="{{ url_for('nomina.empleador', eid=e.id) }}">Cancelar</a>
+</form>
+{% endblock %}

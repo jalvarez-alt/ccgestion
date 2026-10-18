@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}S.G.C.S. - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>S.G.C.S.</h1>
+<p class="nota">Formato de vinculación y conocimiento de asociados de negocio.</p>
+<div class="tarjetas">
+    {% if puede('sgcs.formulario') %}<a class="tarjeta" href="{{ url_for('formulario') }}">
+        <strong>Diligenciar formulario</strong>
+        <span>Formato de vinculación y conocimiento de asociados de negocio.</span>
+    </a>{% endif %}
+    {% if puede('sgcs.consultar') %}<a class="tarjeta" href="{{ url_for('registros') }}">
+        <strong>{% if puede('sgcs.todos') %}Consulta de registros{% else %}Consulta de mis registros{% endif %}</strong>
+        <span>{% if puede('sgcs.todos') %}Busca, consulta y descarga en PDF los formularios diligenciados.{% else %}Consulta y descarga en PDF tus formularios.{% endif %}</span>
+    </a>{% endif %}
+    {% if puede('sgcs.exportar') %}
+    <a class="tarjeta" href="{{ url_for('exportar') }}">
+        <strong>Exportar a Excel</strong>
+        <span>Descarga todos los registros en un Excel con una hoja por sección.</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

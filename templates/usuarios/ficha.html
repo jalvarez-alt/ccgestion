@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}{{ p.nombre }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<p><a href="{{ url_for('usuarios.lista', ver='todos') }}">&larr; Volver</a></p>
+<h1>{{ p.nombre }}</h1>
+<p class="nota">{{ p.cargo or 'Sin cargo registrado' }}{% if p.ciudad %} · {{ p.ciudad }}{% endif %}</p>
+<div class="tarjetas resumen">
+    <div class="tarjeta">
+        <strong>{% if p.fecha_ingreso %}{{ p.anios }} año{{ '' if p.anios == 1 else 's' }}{% else %}—{% endif %}</strong>
+        <span>{% if p.fecha_ingreso %}Años cumplidos en la empresa{% else %}Sin fecha de ingreso registrada{% endif %}</span>
+    </div>
+    <div class="tarjeta">
+        <strong>{{ p.fecha_ingreso.strftime('%d/%m/%Y') if p.fecha_ingreso else '—' }}</strong>
+        <span>Fecha de ingreso a la empresa</span>
+    </div>
+</div>
+{% if p.fecha_ingreso %}<p><strong>Antigüedad:</strong> {{ p.antiguedad }}.</p>{% endif %}
+<section class="panel">
+    <h2>Datos</h2>
+    <dl class="datos">
+        <dt>Documento</dt><dd>{% if p.num_id %}{{ p.tipo_id or '' }} {{ p.num_id }}{% else %}—{% endif %}</dd>
+        <dt>Correo</dt><dd>{{ p.correo or '—' }}</dd>
+        <dt>Teléfono</dt><dd>{{ p.telefono or '—' }}</dd>
+        <dt>Cargo</dt><dd>{{ p.cargo or '—' }}</dd>
+        <dt>Ciudad</dt><dd>{{ p.ciudad or '—' }}</dd>
+        <dt>Acceso a la aplicación</dt><dd><span class="etiqueta {{ 'si' if p.activo else 'no' }}">{{ 'Habilitado' if p.activo else 'Sin acceso' }}</span>{% if ROL %} · {{ ROL }}{% endif %}</dd>
+    </dl>
+</section>
+{% if puede('personas.gestionar') and (usuario.rol == 'administrador' or p.rol != 'administrador') %}
+<a class="boton" href="{{ url_for('usuarios.formulario', pid=p.id) }}">Editar</a>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Registro {{ r.id }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+{% macro tabla(filas, cols) %}
+{% if filas %}
+<div class="tabla-scroll"><table>
+    <thead><tr>{% for c, t in cols %}<th>{{ t }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for f in filas %}<tr>{% for c, t in cols %}<td>{{ mostrar(c, f[c]) }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<p class="vacio">Sin información.</p>{% endif %}
+{% endmacro %}
+
+<p><a href="{{ url_for('registros') }}">&larr; Volver a registros</a></p>
+<h1>{{ r.nombre }}</h1>
+<p class="nota">Registro n.º {{ r.id }} · {{ r.identificacion }}</p>
+<p>
+    <a class="boton" href="{{ url_for('registro_pdf', rid=r.id) }}">Descargar PDF</a>
+</p>
+
+{% for titulo, cols, solo in etiquetas.SECCIONES %}
+{% if not solo or solo == r.tipo_persona %}
+<section class="panel">
+    <h2>{{ titulo }}</h2>
+    <dl class="datos">
+    {% for c in cols %}
+        <dt>{{ etiquetas.LABELS[c] }}</dt><dd>{{ mostrar(c, r[c]) }}</dd>
+    {% endfor %}
+    </dl>
+</section>
+{% if loop.index == 3 and r.tipo_persona == 'juridica' or (solo == 'juridica') %}
+{% if representante %}
+<section class="panel">
+    <h2>2.1 Representante legal</h2>
+    <dl class="datos">
+    {% for c, t in etiquetas.REPRESENTANTE_COLS %}<dt>{{ t }}</dt><dd>{{ mostrar(c, representante[c]) }}</dd>{% endfor %}
+    </dl>
+</section>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+<section class="panel"><h2>4. Información financiera</h2>{{ tabla(financiero, etiquetas.FINANCIERO_COLS) }}</section>
+<section class="panel"><h2>4.1 Cuentas o productos financieros</h2>{{ tabla(cuentas, etiquetas.CUENTAS_COLS) }}</section>
+<section class="panel"><h2>5. Beneficiarios finales</h2>{{ tabla(beneficiarios, etiquetas.BENEFICIARIOS_COLS) }}</section>
+<section class="panel"><h2>8. Referencias comerciales</h2>{{ tabla(referencias, etiquetas.REFERENCIAS_COLS) }}</section>
+{% endblock %}
