@@ -20,6 +20,7 @@ from celulares import bp as celulares_bp
 from equipos import bp as equipos_bp
 from nomina import bp as nomina_bp
 from usuarios import bp as usuarios_bp
+from whatsapp import bp as whatsapp_bp
 from seguridad import (PERMISOS, csrf_token, destino_seguro, login_requerido, requiere_permiso, requiere_rol, tiene, tiene_alguno,
                        revisar_csrf, verificar_clave)
 
@@ -41,13 +42,15 @@ app.register_blueprint(nomina_bp)
 app.register_blueprint(celulares_bp)
 app.register_blueprint(usuarios_bp)
 app.register_blueprint(equipos_bp)
+app.register_blueprint(whatsapp_bp)
 
 
 @app.before_request
 def antes():
     if request.endpoint == "static":
         return
-    revisar_csrf()
+    if not (request.endpoint or "").startswith("whatsapp.webhook"):   # los llama el servicio Node con token
+        revisar_csrf()
     g.usuario = None
     g.permisos = frozenset()
     g.roles_nombres = {}

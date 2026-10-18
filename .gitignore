@@ -8,3 +8,8 @@ sftp.json
 config.py
 ccgestion_dump.sql
 *.sql
+
+whatsapp-service/node_modules/
+despliegue_whatsapp.zip
+despliegue_config_servidor.txt
+!whatsapp_schema.sql

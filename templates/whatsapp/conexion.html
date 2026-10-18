@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Conexión WhatsApp - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Conexión de WhatsApp</h1>
+{% if est.estado != 'listo' %}<meta http-equiv="refresh" content="6">{% endif %}
+<div class="panel">
+    {% if error_servicio %}
+        <p><strong>El servicio de WhatsApp no responde.</strong> {{ error_servicio }}</p>
+        <p class="nota">Enciéndelo con <code>npm start</code> dentro de la carpeta <code>whatsapp-service</code> (ver README).</p>
+    {% elif est.estado == 'listo' %}
+        <p>Conectado como <strong>{{ est.numero or 'WhatsApp' }}</strong>. Cola de envío: {{ est.en_cola or 0 }} mensaje(s).</p>
+        <form method="post" action="{{ url_for('whatsapp.cerrar_sesion') }}" onsubmit="return confirm('¿Cerrar la sesión de WhatsApp en este servicio?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="secundario">Cerrar sesión de WhatsApp</button>
+        </form>
+    {% elif est.estado == 'qr' and est.qr %}
+        <p>En el celular: <strong>WhatsApp → Dispositivos vinculados → Vincular un dispositivo</strong> y escanea:</p>
+        <img src="{{ est.qr }}" alt="Código QR de WhatsApp" width="280" height="280">
+        <p class="nota">Esta página se actualiza sola. Usa un número exclusivo para la empresa.</p>
+    {% else %}
+        <p>Iniciando el servicio ({{ est.estado or 'desconocido' }})… espera unos segundos.</p>
+    {% endif %}
+    <div class="acciones"><a class="boton secundario" href="{{ url_for('whatsapp.lista') }}">Volver</a></div>
+</div>
+{% endblock %}

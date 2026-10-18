@@ -35,3 +35,11 @@ PERMITIR_REGISTRO = True
 #SMTP_PASS = "CAMBIA_contraseña_de_aplicacion"
 #SMTP_REMITENTE = "CAMBIA_correo_que_envia@gmail.com"   # normalmente igual a SMTP_USER
 #SMTP_NOMBRE = "Nómina Camiones y Camiones"
+
+# ------------------------------------------------------------
+# WHATSAPP (mensajes masivos). Servicio Node de la carpeta whatsapp-service/
+# WA_TOKEN debe ser IGUAL al WA_TOKEN del archivo .env del servicio.
+# ------------------------------------------------------------
+WA_SERVICIO_URL = "http://127.0.0.1:3100"
+WA_TOKEN = "CAMBIA_texto_largo_aleatorio"
+WA_PAIS = "57"   # indicativo para celulares de 10 digitos

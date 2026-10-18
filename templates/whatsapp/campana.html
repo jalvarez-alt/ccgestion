@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}{{ c.nombre }} - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>{{ c.nombre }}</h1>
+<p class="nota">Creada el {{ c.creada_en.strftime('%d/%m/%Y %H:%M') }} por {{ c.creada_por or '—' }}.</p>
+
+<div class="panel">
+    {% if error_servicio %}<p>{{ error_servicio }}</p>
+    {% elif est.estado != 'listo' %}<p>WhatsApp no está conectado. <a href="{{ url_for('whatsapp.conexion') }}">Escanear QR</a></p>{% endif %}
+    <p>
+        {% for k, n in conteo.items() %}<a href="{{ url_for('whatsapp.detalle', cid=c.id, estado=k) }}"><strong>{{ n }}</strong> {{ WA_ESTADOS[k] }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+        {% if filtro %} · <a href="{{ url_for('whatsapp.detalle', cid=c.id) }}">ver todos</a>{% endif %}
+    </p>
+    <div class="acciones">
+        {% if puede('whatsapp.enviar') %}
+            {% if conteo.get('pendiente') %}
+            <form method="post" action="{{ url_for('whatsapp.enviar', cid=c.id) }}" onsubmit="return confirm('¿Enviar {{ conteo.get('pendiente') }} mensajes de WhatsApp?')">
+                <input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit">Enviar {{ conteo.get('pendiente') }} pendientes</button>
+            </form>{% endif %}
+            {% if conteo.get('error') %}
+            <form method="post" action="{{ url_for('whatsapp.enviar', cid=c.id) }}">
+                <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="reintentar" value="1"><button type="submit" class="secundario">Reintentar errores</button>
+            </form>{% endif %}
+            {% if conteo.get('en_cola') %}
+            <form method="post" action="{{ url_for('whatsapp.reponer', cid=c.id) }}" onsubmit="return confirm('Los mensajes que siguen en cola volverán a Pendiente y no se enviarán. ¿Continuar?')">
+                <input type="hidden" name="csrf" value="{{ csrf_token() }}"><button type="submit" class="secundario">Cancelar los que siguen en cola</button>
+            </form>{% endif %}
+        {% endif %}
+        <a class="boton secundario" href="{{ url_for('whatsapp.exportar', cid=c.id) }}">Exportar historial a Excel</a>
+        <a class="boton secundario" href="{{ url_for('whatsapp.lista') }}">Volver</a>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>Mensajes{% if filtro %} · {{ WA_ESTADOS[filtro] }}{% endif %}</h2>
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Manifiesto</th><th>Cliente</th><th>O. cargue</th><th>Remesa</th><th>Teléfono</th><th>Estado</th><th>Enviado</th><th>Respuesta</th></tr></thead>
+        <tbody>{% for m in msgs %}
+        <tr>
+            <td>{{ m.manifiesto or '' }}</td><td>{{ m.cliente or '' }}</td><td>{{ m.orden_cargue or '' }}</td><td>{{ m.remesa or '' }}</td>
+            <td>{{ m.telefono }}{% if m.contacto %}<br><span class="nota">{{ m.contacto }}</span>{% endif %}</td>
+            <td>{{ WA_ESTADOS[m.estado] }}{% if m.error %}<br><span class="nota">{{ m.error }}</span>{% endif %}</td>
+            <td>{{ m.enviado_en.strftime('%d/%m %H:%M') if m.enviado_en else '' }}</td>
+            <td>{% if m.n_resp %}<strong>{{ m.n_resp }}</strong> · {{ (m.ultima_resp or '')[:120] }}{% endif %}</td>
+        </tr>{% else %}<tr><td colspan="8">Sin mensajes.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</div>
+
+<div class="panel">
+    <h2>Texto de ejemplo (primer mensaje)</h2>
+    <pre style="white-space:pre-wrap">{{ msgs[0].texto if msgs else c.plantilla }}</pre>
+</div>
+
+{% if resp %}
+<div class="panel">
+    <h2>Respuestas recibidas ({{ resp|length }})</h2>
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Recibida</th><th>Manifiesto</th><th>Cliente</th><th>Teléfono</th><th>Respuesta</th></tr></thead>
+        <tbody>{% for r in resp %}<tr><td>{{ r.recibida_en.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ r.manifiesto }}</td><td>{{ r.cliente or '' }}</td><td>{{ r.telefono }}</td><td>{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+</div>
+{% endif %}
+{% endblock %}

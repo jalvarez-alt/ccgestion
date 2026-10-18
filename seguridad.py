@@ -18,6 +18,8 @@ PERMISOS = {
     "celulares.reactivar": ("Adm. Tecnológica · Celulares", "Reactivar celulares dados de baja"),
     "equipos.consultar": ("Adm. Tecnológica · Equipos", "Consultar el inventario de equipos"),
     "equipos.gestionar": ("Adm. Tecnológica · Equipos", "Crear y editar equipos y su software"),
+    "whatsapp.consultar": ("WhatsApp", "Ver campañas, historial de envíos y respuestas"),
+    "whatsapp.enviar": ("WhatsApp", "Crear campañas, conectar WhatsApp y enviar mensajes masivos"),
     "personas.consultar": ("Usuarios", "Ver usuarios de la aplicación y todos los usuarios"),
     "personas.gestionar": ("Usuarios", "Crear/editar personas y habilitar o deshabilitar el acceso"),
 }

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Nueva campaña WhatsApp - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Nueva campaña de WhatsApp</h1>
+<p class="nota">Sube el archivo con los documentos pendientes. Se crea la campaña con un mensaje por fila y <strong>no se envía nada</strong> hasta que lo confirmes en la siguiente pantalla.</p>
+{% if errores %}<div class="errores"><strong>No se creó la campaña:</strong><ul>{% for e in errores %}<li>{{ e }}</li>{% endfor %}{% if mas_errores %}<li>… y {{ mas_errores }} más.</li>{% endif %}</ul></div>{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="panel">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label class="campo ancho">Nombre de la campaña <input type="text" name="nombre" maxlength="150" value="{{ v.nombre }}" required></label>
+    <label class="campo ancho">Texto del mensaje
+        <textarea name="plantilla" rows="9" maxlength="1500" required>{{ v.plantilla }}</textarea>
+    </label>
+    <p class="nota">Campos que se reemplazan por los datos de cada fila: <code>{manifiesto}</code> <code>{cliente}</code> <code>{orden_cargue}</code> <code>{remesa}</code> <code>{contacto}</code>.</p>
+    <label class="campo ancho">Archivo (.xlsx o .csv, máx. 1 MB)
+        <input type="file" name="archivo" accept=".xlsx,.csv,.txt" required>
+    </label>
+    <div class="acciones" style="margin-top:12px">
+        <button type="submit">Crear campaña</button>
+        <a class="boton secundario" href="{{ url_for('whatsapp.plantilla') }}">Descargar plantilla</a>
+        <a class="boton secundario" href="{{ url_for('whatsapp.lista') }}">Cancelar</a>
+    </div>
+    <h3>Columnas</h3>
+    <p class="nota">{% for _, t, _ in columnas %}{{ t }}{% if not loop.last %} · {% endif %}{% endfor %}. Obligatorios: Manifiesto y Teléfono.</p>
+</form>
+{% endblock %}

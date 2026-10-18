@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block titulo %}Respuestas WhatsApp - C&amp;C Gestión{% endblock %}
+{% block contenido %}
+<h1>Respuestas de WhatsApp</h1>
+<p class="nota">Últimas {{ filas|length }} respuestas recibidas. Las que no se pueden ligar a un envío aparecen sin manifiesto.</p>
+<div class="panel">
+    <div class="tabla-scroll"><table>
+        <thead><tr><th>Recibida</th><th>Campaña</th><th>Manifiesto</th><th>Cliente</th><th>Teléfono</th><th>Respuesta</th></tr></thead>
+        <tbody>{% for r in filas %}<tr>
+            <td>{{ r.recibida_en.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{% if r.campana_id %}<a href="{{ url_for('whatsapp.detalle', cid=r.campana_id) }}">{{ r.campana }}</a>{% endif %}</td>
+            <td>{{ r.manifiesto or '' }}</td><td>{{ r.cliente or '' }}</td><td>{{ r.telefono }}</td><td>{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td>
+        </tr>{% else %}<tr><td colspan="6">Sin respuestas todavía.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="acciones"><a class="boton secundario" href="{{ url_for('whatsapp.lista') }}">Volver</a></div>
+</div>
+{% endblock %}

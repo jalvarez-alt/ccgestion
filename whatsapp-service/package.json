@@ -1,0 +1,19 @@
+{
+  "name": "ccgestion-whatsapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servicio de envío masivo por WhatsApp para C&C Gestión",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5",
+    "whatsapp-web.js": "^1.26.0"
+  }
+}

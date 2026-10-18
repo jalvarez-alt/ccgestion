@@ -83,6 +83,16 @@
             </details>
             {% endif %}
 
+            {% if puede('whatsapp.consultar') %}
+            <details class="m-grupo"{% if ep.startswith('whatsapp.') %} open{% endif %}>
+                <summary><a href="{{ url_for('whatsapp.lista') }}" class="m-tit">WhatsApp</a></summary>
+                <a class="m-item {% if ep in ('whatsapp.lista', 'whatsapp.detalle') %}activo{% endif %}" href="{{ url_for('whatsapp.lista') }}">Campañas</a>
+                {% if puede('whatsapp.enviar') %}<a class="m-item {% if ep == 'whatsapp.nueva' %}activo{% endif %}" href="{{ url_for('whatsapp.nueva') }}">Nueva campaña</a>
+                <a class="m-item {% if ep == 'whatsapp.conexion' %}activo{% endif %}" href="{{ url_for('whatsapp.conexion') }}">Conexión (QR)</a>{% endif %}
+                <a class="m-item {% if ep == 'whatsapp.todas_respuestas' %}activo{% endif %}" href="{{ url_for('whatsapp.todas_respuestas') }}">Respuestas</a>
+            </details>
+            {% endif %}
+
             {% if puede('personas.consultar') %}
             <details class="m-grupo"{% if g_usr %} open{% endif %}>
                 <summary><a href="{{ url_for('usuarios.lista') }}" class="m-tit">Usuarios</a></summary>
