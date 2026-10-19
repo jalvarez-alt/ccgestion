@@ -308,17 +308,51 @@ def mensajes_por_ids(ids):
     return _ejecutar("SELECT * FROM wa_mensajes WHERE id IN (%s)" % ",".join(["%s"] * len(ids)), ids)
 
 
+# tel_enviado = número al que se envió el aviso; r.telefono = número desde el que respondieron.
+_PLACAS = ("(SELECT GROUP_CONCAT(DISTINCT i.placa ORDER BY i.id SEPARATOR ', ') FROM wa_items i "
+           "WHERE i.campana_id = m.campana_id AND i.telefono = m.telefono) AS placas")
+
+
+def _like(texto):
+    """Patrón LIKE seguro (%texto%) escapando los comodines que escriba el usuario."""
+    return "%" + texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 def respuestas_de_campana(cid):
-    return _ejecutar("SELECT r.*, COALESCE(m.manifiestos, m.manifiesto) AS manifiesto, m.contacto FROM wa_respuestas r "
+    return _ejecutar("SELECT r.*, COALESCE(m.manifiestos, m.manifiesto) AS manifiesto, m.contacto, "
+                     "m.telefono AS tel_enviado, " + _PLACAS + " FROM wa_respuestas r "
                      "JOIN wa_mensajes m ON m.id = r.mensaje_id WHERE m.campana_id = %s ORDER BY r.id", [cid])
 
 
-def respuestas(limite=300):
+def respuestas(filtros=None, limite=300):
+    """filtros: placa, contacto, manifiesto, celular (cualquiera de los dos números) y campana (id)."""
     asegurar_tablas()
-    return _ejecutar(
-        "SELECT r.*, COALESCE(m.manifiestos, m.manifiesto) AS manifiesto, m.contacto, m.campana_id, c.nombre AS campana "
-        "FROM wa_respuestas r LEFT JOIN wa_mensajes m ON m.id = r.mensaje_id "
-        "LEFT JOIN wa_campanas c ON c.id = m.campana_id ORDER BY r.id DESC LIMIT %s", [limite])
+    f = filtros or {}
+    donde, params = [], []
+    if f.get("placa"):
+        donde.append("EXISTS (SELECT 1 FROM wa_items i WHERE i.campana_id = m.campana_id AND i.telefono = m.telefono "
+                     "AND i.placa LIKE %s)")
+        params.append(_like(f["placa"]))
+    if f.get("contacto"):
+        donde.append("m.contacto LIKE %s")
+        params.append(_like(f["contacto"]))
+    if f.get("manifiesto"):
+        donde.append("COALESCE(m.manifiestos, m.manifiesto) LIKE %s")
+        params.append(_like(f["manifiesto"]))
+    if f.get("celular"):
+        digitos = re.sub(r"\D", "", f["celular"])
+        if digitos:
+            donde.append("(m.telefono LIKE %s OR r.telefono LIKE %s)")
+            params += [_like(digitos), _like(digitos)]
+    if f.get("campana"):
+        donde.append("m.campana_id = %s")
+        params.append(f["campana"])
+    sql = ("SELECT r.*, COALESCE(m.manifiestos, m.manifiesto) AS manifiesto, m.contacto, m.telefono AS tel_enviado, "
+           "m.campana_id, c.nombre AS campana, " + _PLACAS + " FROM wa_respuestas r "
+           "LEFT JOIN wa_mensajes m ON m.id = r.mensaje_id LEFT JOIN wa_campanas c ON c.id = m.campana_id")
+    if donde:
+        sql += " WHERE " + " AND ".join(donde)
+    return _ejecutar(sql + " ORDER BY r.id DESC LIMIT %s", params + [limite])
 
 
 def respuestas_de_mensaje(mid):

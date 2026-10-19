@@ -289,9 +289,22 @@ def exportar(cid):
         "Content-Disposition": 'attachment; filename="CC_Gestion_whatsapp_%d_%s.xlsx"' % (c["id"], date.today().strftime("%Y%m%d"))})
 
 
+@bp.app_template_filter("tel")
+def _tel(n):
+    """573001234567 -> +57 300 123 4567"""
+    n = str(n or "")
+    if len(n) == 12 and n.startswith("57"):
+        return "+57 %s %s %s" % (n[2:5], n[5:8], n[8:])
+    return "+" + n if n else ""
+
+
 @bp.route("/respuestas")
 def todas_respuestas():
-    return render_template("whatsapp/respuestas.html", filas=W.respuestas())
+    f = {k: (request.args.get(k) or "").strip()[:80] for k in ("placa", "contacto", "manifiesto", "celular")}
+    f["campana"] = int(request.args["campana"]) if (request.args.get("campana") or "").isdigit() else None
+    filas = W.respuestas(f)
+    return render_template("whatsapp/respuestas.html", filas=filas, f=f, campanas=W.campanas(),
+                           filtrado=any(f.values()))
 
 
 # ---------------------------------------------------------------- webhooks (los llama el servicio Node)
