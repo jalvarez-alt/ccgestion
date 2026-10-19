@@ -14,3 +14,4 @@ despliegue_whatsapp.zip
 despliegue_config_servidor.txt
 !whatsapp_schema.sql
 !whatsapp_migracion_avisos.sql
+!whatsapp_corregir_hora.sql

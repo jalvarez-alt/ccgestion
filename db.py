@@ -11,4 +11,5 @@ def get_db():
         database=config.DB_NAME,
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
+        init_command="SET time_zone = '-05:00'",   # NOW()/TIMESTAMP en hora de Colombia
     )

@@ -1,8 +1,17 @@
 import json
 import math
+import os
 import re
 import secrets
+import time
 from datetime import date, datetime, timedelta
+
+# Hora de Colombia (UTC-5, sin horario de verano) para TODA la app, sin importar la zona del servidor.
+# "COT5" es una zona POSIX completa: no depende de la base de zonas horarias del hosting.
+# Debe ir antes de usar datetime.now()/date.today(). En Windows (desarrollo) no hay tzset y se usa la hora del PC.
+if hasattr(time, "tzset"):
+    os.environ["TZ"] = "COT5"
+    time.tzset()
 
 from flask import (Flask, Response, abort, flash, g, redirect, render_template,
                    request, session, url_for)

@@ -246,6 +246,21 @@ async function cerrarSesion() {
   reiniciar(true);
 }
 
+// Compara la hora que usa ccgestion (servidor) con la de este PC y avisa en el log si no coinciden.
+let ultimoDesfase = null;
+function revisarHora(textoServidor, ahora) {
+  if (!textoServidor) return;
+  const servidor = new Date(textoServidor.replace(' ', 'T'));        // hora local "sin zona" del servidor
+  if (isNaN(servidor)) return;
+  const min = Math.round((servidor.getTime() - ahora) / 60000);
+  const desfase = Math.abs(min) <= 2 ? 0 : min;
+  if (desfase !== ultimoDesfase) {
+    ultimoDesfase = desfase;
+    console.log(desfase === 0 ? 'Hora del servidor ccgestion: correcta (igual a este PC)'
+      : 'Hora del servidor ccgestion DESFASADA: ' + (desfase > 0 ? '+' : '') + desfase + ' min respecto a este PC (' + textoServidor + ')');
+  }
+}
+
 async function sondear() {
   try {
     const r = await avisar('latido', {
@@ -253,6 +268,7 @@ async function sondear() {
     });
     if (!r || typeof r !== 'object') return;
     const ahora = Date.now();
+    revisarHora(r.ahora, ahora);
     for (const [id, t] of vistos) if (ahora - t > VISTO_MIN) vistos.delete(id);
     if (Array.isArray(r.vigentes)) {          // lo que ya no está en cola en ccgestion (cancelado) se descarta
       const vigentes = new Set(r.vigentes);

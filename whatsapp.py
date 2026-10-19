@@ -351,7 +351,8 @@ def webhook_latido():
     qr = d.get("qr") if isinstance(d.get("qr"), str) and d["qr"].startswith("data:image/png;base64,") else None
     comando, mensajes, vigentes, lids = W.latido(str(d.get("estado") or "desconocido")[:20], qr,
                                           str(d.get("numero") or "")[:30] or None, int(d.get("en_cola") or 0))
-    return jsonify(ok=True, comando=comando, mensajes=mensajes, vigentes=vigentes, lids=lids)
+    return jsonify(ok=True, comando=comando, mensajes=mensajes, vigentes=vigentes, lids=lids,
+                   ahora=W.ahora().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 @bp.route("/webhook/lid", methods=["POST"])
