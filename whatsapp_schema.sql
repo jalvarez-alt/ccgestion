@@ -1,5 +1,6 @@
--- Esquema de WhatsApp (campañas, mensajes, respuestas con adjunto en OneDrive). Es idempotente.
--- Lo crea sola la app al abrir WhatsApp por primera vez; este archivo sirve para aplicarlo a mano (phpMyAdmin).
+-- Esquema de WhatsApp: campañas, mensajes (1.er/2.º aviso), manifiestos por contacto, respuestas y estado del servicio.
+-- Para una base NUEVA. La app también crea y migra estas tablas sola al abrir WhatsApp por primera vez.
+-- Si ya tienes las tablas de una versión anterior, usa whatsapp_migracion_avisos.sql.
 
 CREATE TABLE IF NOT EXISTS `wa_campanas` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -7,8 +8,10 @@ CREATE TABLE IF NOT EXISTS `wa_campanas` (
   `plantilla` text NOT NULL,
   `creada_por` varchar(150) DEFAULT NULL,
   `creada_en` datetime NOT NULL,
+  `plantilla2` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+;
 
 CREATE TABLE IF NOT EXISTS `wa_mensajes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -27,12 +30,29 @@ CREATE TABLE IF NOT EXISTS `wa_mensajes` (
   `enviado_en` datetime DEFAULT NULL,
   `entregado_en` datetime DEFAULT NULL,
   `leido_en` datetime DEFAULT NULL,
+  `aviso` tinyint(4) NOT NULL DEFAULT 1,
+  `manifiestos` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `campana_id` (`campana_id`),
   KEY `telefono` (`telefono`),
   KEY `wa_id` (`wa_id`),
   KEY `manifiesto` (`manifiesto`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+;
+
+CREATE TABLE IF NOT EXISTS `wa_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `campana_id` int(11) NOT NULL,
+  `telefono` varchar(20) NOT NULL,
+  `contacto` varchar(150) DEFAULT NULL,
+  `fecha` date DEFAULT NULL,
+  `manifiesto` varchar(60) NOT NULL,
+  `placa` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `campana_id` (`campana_id`),
+  KEY `telefono` (`telefono`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+;
 
 CREATE TABLE IF NOT EXISTS `wa_respuestas` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -50,9 +70,9 @@ CREATE TABLE IF NOT EXISTS `wa_respuestas` (
   UNIQUE KEY `uq_wa_id` (`wa_id`),
   KEY `mensaje_id` (`mensaje_id`),
   KEY `telefono` (`telefono`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+;
 
--- Estado del servicio de WhatsApp (latido). La app también la crea sola si falta.
 CREATE TABLE IF NOT EXISTS `wa_servicio` (
   `id` tinyint(4) NOT NULL,
   `estado` varchar(20) NOT NULL,
@@ -62,4 +82,6 @@ CREATE TABLE IF NOT EXISTS `wa_servicio` (
   `comando` varchar(20) DEFAULT NULL,
   `actualizado` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+;
+

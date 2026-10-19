@@ -28,14 +28,14 @@
     <h2>Campañas</h2>
     {% if campanas %}
     <div class="tabla-scroll"><table>
-        <thead><tr><th>#</th><th>Campaña</th><th>Creada</th><th>Total</th><th>Pend.</th><th>Enviados</th><th>Entregados</th><th>Leídos</th><th>Respuestas</th><th>Errores</th></tr></thead>
+        <thead><tr><th>#</th><th>Campaña</th><th>Creada</th><th>Contactos</th><th>Pend.</th><th>Enviados</th><th>Entregados</th><th>Leídos</th><th>Respuestas</th><th>2.º aviso</th><th>Errores</th></tr></thead>
         <tbody>{% for c in campanas %}
         <tr>
             <td>{{ c.id }}</td>
             <td><a href="{{ url_for('whatsapp.detalle', cid=c.id) }}">{{ c.nombre }}</a><br><span class="nota">{{ c.creada_por or '' }}</span></td>
             <td>{{ c.creada_en.strftime('%d/%m/%Y %H:%M') }}</td>
             <td>{{ c.total }}</td><td>{{ (c.pendientes or 0) + (c.en_cola or 0) }}</td><td>{{ c.enviados or 0 }}</td>
-            <td>{{ c.entregados or 0 }}</td><td>{{ c.leidos or 0 }}</td><td>{{ c.respuestas or 0 }}</td><td>{{ c.errores or 0 }}</td>
+            <td>{{ c.entregados or 0 }}</td><td>{{ c.leidos or 0 }}</td><td>{{ c.respuestas or 0 }}</td><td>{% if c.plantilla2 %}{{ c.segundos or 0 }}{% else %}—{% endif %}</td><td>{{ c.errores or 0 }}</td>
         </tr>{% endfor %}</tbody>
     </table></div>
     {% else %}<p class="nota">Aún no hay campañas.</p>{% endif %}

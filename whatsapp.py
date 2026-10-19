@@ -4,7 +4,7 @@ El envío real lo hace el servicio Node de la carpeta whatsapp-service/ (whatsap
 corre aparte; esta app le entrega los mensajes y él avisa de cada resultado/respuesta por webhook.
 """
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, Response, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
@@ -19,16 +19,14 @@ bp = Blueprint("whatsapp", __name__, url_prefix="/whatsapp")
 EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 WEBHOOKS = ("whatsapp.webhook_estado", "whatsapp.webhook_respuesta", "whatsapp.webhook_archivo", "whatsapp.webhook_latido")
 
-COLUMNAS = [("manifiesto", "Manifiesto", "MF-123456"), ("cliente", "Cliente", "Transportes Ejemplo S.A.S."),
-            ("orden_cargue", "Orden de cargue", "OC-7890"), ("remesa", "Remesa", "RM-4567"),
-            ("telefono", "Teléfono", "3001234567"), ("contacto", "Contacto", "Juan Pérez")]
+COLUMNAS = [("fecha", "Fecha", "2026-10-15"), ("manifiesto", "Manifiesto", "MF-123456"),
+            ("placa", "Placa", "ABC123"), ("celular", "Celular", "3001234567"), ("contacto", "Contacto", "Juan Pérez")]
 ALIAS = _alias(
+    ("fecha", ["fecha", "fechamanifiesto", "fechadespacho", "fechaviaje"]),
     ("manifiesto", ["manifiesto", "mft", "nummanifiesto", "numeromanifiesto"]),
-    ("cliente", ["cliente", "razonsocial", "empresa"]),
-    ("orden_cargue", ["ordencargue", "ordendecargue", "oc", "ordencarga"]),
-    ("remesa", ["remesa", "numremesa", "numeroremesa"]),
-    ("telefono", ["telefono", "celular", "whatsapp", "numero", "movil", "tel"]),
-    ("contacto", ["contacto", "nombre", "nombrecontacto"]))
+    ("placa", ["placa", "placavehiculo", "vehiculo"]),
+    ("celular", ["celular", "telefono", "whatsapp", "numero", "movil", "tel"]),
+    ("contacto", ["contacto", "nombre", "conductor", "nombrecontacto", "nombreconductor"]))
 MAX_FILAS = 1000
 
 
@@ -85,59 +83,88 @@ def cerrar_sesion():
     return redirect(url_for("whatsapp.conexion"))
 
 
+def _fecha(texto):
+    """(date|None, valida). Acepta aaaa-mm-dd, dd/mm/aaaa, dd-mm-aaaa y el número de serie de Excel."""
+    t = (texto or "").strip().split(" ")[0]
+    if not t:
+        return None, True
+    if t.isdigit() and 20000 < int(t) < 80000:
+        return date(1899, 12, 30) + timedelta(days=int(t)), True
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(t, fmt).date(), True
+        except ValueError:
+            pass
+    return None, False
+
+
 def leer_archivo(archivo):
+    """Agrupa por celular: devuelve ([{telefono, contacto, items:[{fecha, manifiesto, placa}]}], errores)."""
     hojas, error = _matriz(archivo.filename, archivo.read())
     if error:
         return None, [error]
-    filas, error = filas_de(next(iter(hojas.values())), ALIAS, "telefono", [c for c, _, _ in COLUMNAS])
+    filas, error = filas_de(next(iter(hojas.values())), ALIAS, "celular", [c for c, _, _ in COLUMNAS])
     if error:
         return None, [error]
     if len(filas) > MAX_FILAS:
         return None, ["El archivo tiene más de %d filas. Divídelo en partes." % MAX_FILAS]
     pais = _cfg("WA_PAIS", "57")
-    buenas, errores, vistos = [], [], set()
+    grupos, errores, vistos = {}, [], set()
     for f in filas:
-        tel, e = W.normalizar_telefono(f["telefono"], pais)
+        tel, e = W.normalizar_telefono(f["celular"], pais)
         if e:
-            errores.append("Fila %d: %s" % (f["_fila"], e))
+            errores.append("Fila %d: %s" % (f["_fila"], e.replace("el teléfono", "el celular").replace("Teléfono", "Celular")))
             continue
-        if not f["manifiesto"]:
+        man = f["manifiesto"].strip()[:60]
+        if not man:
             errores.append("Fila %d: falta el manifiesto" % f["_fila"])
             continue
-        clave = (f["manifiesto"], tel)
-        if clave in vistos:
-            errores.append("Fila %d: el manifiesto %s ya está para ese teléfono" % (f["_fila"], f["manifiesto"]))
+        fecha, valida = _fecha(f["fecha"])
+        if not valida:
+            errores.append("Fila %d: la fecha «%s» no es válida (usa aaaa-mm-dd o dd/mm/aaaa)" % (f["_fila"], f["fecha"]))
             continue
-        vistos.add(clave)
-        buenas.append({**{c: f[c][:200] or None for c, _, _ in COLUMNAS}, "telefono": tel})
-    return buenas, errores
+        if (tel, man.lower()) in vistos:
+            errores.append("Fila %d: el manifiesto %s está repetido para ese celular" % (f["_fila"], man))
+            continue
+        vistos.add((tel, man.lower()))
+        g = grupos.setdefault(tel, {"telefono": tel, "contacto": None, "items": []})
+        g["contacto"] = g["contacto"] or f["contacto"].strip()[:150] or None
+        g["items"].append({"fecha": fecha, "manifiesto": man, "placa": f["placa"].strip()[:30] or None})
+    return list(grupos.values()), errores
 
 
 @bp.route("/nueva", methods=["GET", "POST"])
 @requiere_permiso("whatsapp.enviar")
 def nueva():
-    v = {"nombre": "Cumplidos pendientes " + date.today().strftime("%d/%m/%Y"), "plantilla": W.PLANTILLA_DEFECTO}
+    v = {"nombre": "Cumplidos pendientes " + date.today().strftime("%d/%m/%Y"), "plantilla": W.PLANTILLA_DEFECTO,
+         "segundo": False, "plantilla2": W.PLANTILLA_SEGUNDO}
     errores = []
     if request.method == "POST":
         v = {"nombre": (request.form.get("nombre") or "").strip()[:150],
-             "plantilla": (request.form.get("plantilla") or "").strip()[:1500]}
+             "plantilla": (request.form.get("plantilla") or "").strip()[:2000],
+             "segundo": request.form.get("segundo") == "1",
+             "plantilla2": (request.form.get("plantilla2") or "").strip()[:2000]}
         arch = request.files.get("archivo")
         if not v["nombre"]:
             errores.append("Escribe un nombre para la campaña.")
         if not v["plantilla"]:
             errores.append("Escribe el texto del mensaje.")
+        if v["segundo"] and not v["plantilla2"]:
+            errores.append("Escribe el texto del segundo aviso o desmarca «Habilitar segundo aviso».")
         if not arch or not arch.filename:
             errores.append("Selecciona el archivo .xlsx o .csv con los pendientes.")
         if not errores:
-            filas, errores = leer_archivo(arch)
-            if not errores and not filas:
+            contactos, errores = leer_archivo(arch)
+            if not errores and not contactos:
                 errores = ["El archivo no tiene filas para enviar."]
             if not errores:
-                cid = W.crear_campana(v["nombre"], v["plantilla"], g.usuario["nombre"], filas)
-                flash("Campaña creada con %d mensajes. Revísalos y pulsa «Enviar» cuando estés listo." % len(filas))
+                cid = W.crear_campana(v["nombre"], v["plantilla"], v["plantilla2"] if v["segundo"] else None,
+                                      g.usuario["nombre"], contactos)
+                flash("Campaña creada: %d contactos con %d manifiestos. Revisa los mensajes y pulsa «Enviar» cuando estés listo."
+                      % (len(contactos), sum(len(c["items"]) for c in contactos)))
                 return redirect(url_for("whatsapp.detalle", cid=cid))
     return render_template("whatsapp/nueva.html", v=v, errores=errores[:60], mas_errores=max(0, len(errores) - 60),
-                           columnas=COLUMNAS)
+                           columnas=COLUMNAS, defecto2=W.PLANTILLA_SEGUNDO)
 
 
 @bp.route("/plantilla")
@@ -147,16 +174,21 @@ def plantilla():
     from io import BytesIO
     wb = Workbook()
     wb.remove(wb.active)
-    ws = _hoja(wb, "Pendientes", [t for _, t, _ in COLUMNAS], [[e for _, _, e in COLUMNAS]])
-    for col in ("A", "C", "D", "E"):
-        for celda in ws[col][1:]:
-            celda.number_format = "@"
+    ws = _hoja(wb, "Pendientes", [t for _, t, _ in COLUMNAS], [
+        [date(2026, 10, 15), "MF-123456", "ABC123", "3001234567", "Juan Pérez"],
+        [date(2026, 10, 17), "MF-123789", "XYZ987", "3001234567", "Juan Pérez"],
+        [date(2026, 10, 16), "MF-124000", "DEF456", "3109876543", "Ana Gómez"]])
+    for fila in range(2, ws.max_row + 1):
+        ws.cell(row=fila, column=1).number_format = "dd/mm/yyyy"
+        for col in (2, 3, 4):
+            ws.cell(row=fila, column=col).number_format = "@"
     hoja = wb.create_sheet("Instrucciones")
-    for linea in ("Una fila por mensaje. La fila 1 son los títulos: no los cambies. Borra la fila de ejemplo.",
-                  "Obligatorios: Manifiesto y Teléfono. Cliente, Orden de cargue y Remesa se muestran en el mensaje.",
-                  "Teléfono: 10 dígitos de celular colombiano (3001234567) o con indicativo (573001234567).",
-                  "Contacto (opcional): nombre de quien recibe el mensaje, para saludarlo.",
-                  "Formatea Manifiesto, Orden de cargue y Remesa como TEXTO para no perder ceros a la izquierda."):
+    for linea in ("Una fila por manifiesto. La fila 1 son los títulos: no los cambies. Borra las filas de ejemplo.",
+                  "Un mismo contacto (celular) puede tener varios manifiestos y placas: repite el celular en cada fila y "
+                  "recibirá UN solo mensaje con todos.",
+                  "Obligatorios: Manifiesto y Celular. Fecha: aaaa-mm-dd o dd/mm/aaaa. Placa y Contacto se muestran en el mensaje.",
+                  "Celular: 10 dígitos de celular colombiano (3001234567) o con indicativo (573001234567).",
+                  "Formatea Manifiesto, Placa y Celular como TEXTO para no perder ceros a la izquierda."):
         hoja.append([linea])
     hoja.column_dimensions["A"].width = 110
     buf = BytesIO()
@@ -178,8 +210,10 @@ def detalle(cid):
     conteo = {}
     for m in W.mensajes(cid):
         conteo[m["estado"]] = conteo.get(m["estado"], 0) + 1
+    sin, con = W.candidatos_segundo(cid) if c["plantilla2"] else ([], [])
     return render_template("whatsapp/campana.html", c=c, msgs=msgs, conteo=conteo, filtro=estado, est=est,
-                           error_servicio=error, resp=W.respuestas_de_campana(cid))
+                           error_servicio=error, resp=W.respuestas_de_campana(cid), items=W.items_por_telefono(cid),
+                           segundo_sin=len(sin), segundo_con=len(con))
 
 
 @bp.route("/<int:cid>/enviar", methods=["POST"])
@@ -202,6 +236,22 @@ def enviar(cid):
     return redirect(url_for("whatsapp.detalle", cid=cid))
 
 
+@bp.route("/<int:cid>/segundo-aviso", methods=["POST"])
+@requiere_permiso("whatsapp.enviar")
+def segundo_aviso(cid):
+    c = campana_o_404(cid)
+    if not c["plantilla2"]:
+        flash("Esta campaña no tiene el segundo aviso habilitado.")
+        return redirect(url_for("whatsapp.detalle", cid=cid))
+    est, error = estado_servicio()
+    if error or est.get("estado") != "listo":
+        flash(error or "WhatsApp no está conectado. Ve a «Conexión» y escanea el QR.")
+        return redirect(url_for("whatsapp.detalle", cid=cid))
+    n = W.crear_segundo_aviso(cid, c["plantilla2"], request.form.get("incluir_respondieron") == "1")
+    flash("%d segundos avisos en cola." % n if n else "No hay contactos a quienes enviar el segundo aviso.")
+    return redirect(url_for("whatsapp.detalle", cid=cid))
+
+
 @bp.route("/<int:cid>/reponer", methods=["POST"])
 @requiere_permiso("whatsapp.enviar")
 def reponer(cid):
@@ -221,15 +271,18 @@ def exportar(cid):
     msgs = W.mensajes(cid)
     wb = Workbook()
     wb.remove(wb.active)
-    _hoja(wb, "Envíos", ["Manifiesto", "Cliente", "Orden de cargue", "Remesa", "Contacto", "Teléfono", "Estado",
-                         "Enviado", "Entregado", "Leído", "Respuestas", "Última respuesta", "Error"],
-          [[m["manifiesto"] or "", m["cliente"] or "", m["orden_cargue"] or "", m["remesa"] or "", m["contacto"] or "",
-            m["telefono"], W.ESTADOS.get(m["estado"], m["estado"]), fmt(m["enviado_en"]), fmt(m["entregado_en"]),
-            fmt(m["leido_en"]), m["n_resp"], m["ultima_resp"] or "", m["error"] or ""] for m in msgs])
-    _hoja(wb, "Respuestas", ["Recibida", "Manifiesto", "Cliente", "Orden de cargue", "Remesa", "Teléfono", "Respuesta", "Archivo en OneDrive", "Enlace"],
-          [[fmt(r["recibida_en"]), r["manifiesto"] or "", r["cliente"] or "", r["orden_cargue"] or "",
-            r["remesa"] or "", r["telefono"], r["texto"] or "(%s)" % r["tipo"], r["archivo_nombre"] or "",
-            r["archivo_url"] or ""] for r in W.respuestas_de_campana(cid)])
+    _hoja(wb, "Envíos", ["Contacto", "Celular", "Aviso", "Manifiestos", "Estado", "Enviado", "Entregado", "Leído",
+                         "Respuestas", "Última respuesta", "Error"],
+          [[m["contacto"] or "", m["telefono"], m["aviso"], m["manifiestos"] or m["manifiesto"] or "",
+            W.ESTADOS.get(m["estado"], m["estado"]), fmt(m["enviado_en"]), fmt(m["entregado_en"]), fmt(m["leido_en"]),
+            m["n_resp"], m["ultima_resp"] or "", m["error"] or ""] for m in msgs])
+    _hoja(wb, "Manifiestos", ["Contacto", "Celular", "Fecha", "Manifiesto", "Placa"],
+          [[(i["contacto"] if "contacto" in i else "") or "", tel, i["fecha"].strftime("%Y-%m-%d") if i["fecha"] else "",
+            i["manifiesto"], i["placa"] or ""] for tel, lista in W.items_por_telefono(cid).items() for i in lista])
+    _hoja(wb, "Respuestas", ["Recibida", "Contacto", "Celular", "Manifiestos", "Respuesta", "Archivo en OneDrive", "Enlace"],
+          [[fmt(r["recibida_en"]), r["contacto"] or "", r["telefono"], r["manifiesto"] or "",
+            r["texto"] or "(%s)" % r["tipo"], r["archivo_nombre"] or "", r["archivo_url"] or ""]
+           for r in W.respuestas_de_campana(cid)])
     buf = BytesIO()
     wb.save(buf)
     return Response(buf.getvalue(), mimetype=EXCEL_MIME, headers={

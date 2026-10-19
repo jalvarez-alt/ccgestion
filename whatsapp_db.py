@@ -12,11 +12,23 @@ RANGO = {"pendiente": 0, "en_cola": 1, "error": 1, "enviado": 2, "entregado": 3,
 # ack de whatsapp-web.js: 1 enviado, 2 entregado, 3 leído, 4 reproducido
 ACK = {1: "enviado", 2: "entregado", 3: "leido", 4: "leido"}
 
+# Las líneas que llevan {fecha}, {num} o {placa} se repiten una vez por cada manifiesto del contacto.
 PLANTILLA_DEFECTO = (
-    "Hola{contacto_saludo}, le escribimos de Camiones y Camiones. Tenemos pendiente el cumplido del documento "
-    "del siguiente servicio:\n\n"
-    "Cliente: {cliente}\nManifiesto: {manifiesto}\nOrden de cargue: {orden_cargue}\nRemesa: {remesa}\n\n"
-    "Por favor responda este mensaje con el soporte o indíquenos la fecha en que lo entregará. ¡Gracias!")
+    "Hola {nombre_conductor} 👋, te saluda Transportes Camiones y Camiones Ltda.\n\n"
+    "Tienes {x} manifiesto(s) pendiente(s) por entregar documentación:\n"
+    "- {fecha} - Manifiesto {num} - Placa {placa}\n\n"
+    "Recuerda que al entregar estos documentos podemos:\n"
+    "✅ Agilizar el pago de tu saldo pendiente\n"
+    "✅ Resolver a tiempo cualquier novedad del viaje\n\n"
+    "Puedes enviarlos por Correspondencia a la CL 15 # 23-10 Yumbo, Oficina en EDS Primax.\n\n"
+    "Responde este mensaje con las fotos de los soportes e indícanos cuando se hara el envio.")
+
+PLANTILLA_SEGUNDO = (
+    "Hola {nombre_conductor}, seguimos pendientes de la documentación de:\n"
+    "- {fecha} - Manifiesto {num} - Placa {placa}\n\n"
+    "Mientras no recibamos estos documentos, no podemos avanzar con el pago de tu saldo ni gestionar novedades del viaje.\n\n"
+    "Recuerda que puedes enviarlos por Correspondencia apenas termines tu ruta, sin necesidad de regresar a Yumbo.\n\n"
+    "Quedamos atentos 🙏")
 
 _CREADAS = False
 
@@ -25,13 +37,16 @@ _TABLAS = [
         id INT AUTO_INCREMENT PRIMARY KEY,
         nombre VARCHAR(150) NOT NULL,
         plantilla TEXT NOT NULL,
+        plantilla2 TEXT NULL,
         creada_por VARCHAR(150) NULL,
         creada_en DATETIME NOT NULL
     ) CHARACTER SET utf8mb4""",
     """CREATE TABLE IF NOT EXISTS wa_mensajes (
         id INT AUTO_INCREMENT PRIMARY KEY,
         campana_id INT NOT NULL,
+        aviso TINYINT NOT NULL DEFAULT 1,
         manifiesto VARCHAR(60) NULL,
+        manifiestos TEXT NULL,
         cliente VARCHAR(200) NULL,
         orden_cargue VARCHAR(60) NULL,
         remesa VARCHAR(60) NULL,
@@ -46,6 +61,16 @@ _TABLAS = [
         entregado_en DATETIME NULL,
         leido_en DATETIME NULL,
         INDEX (campana_id), INDEX (telefono), INDEX (wa_id), INDEX (manifiesto)
+    ) CHARACTER SET utf8mb4""",
+    """CREATE TABLE IF NOT EXISTS wa_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        campana_id INT NOT NULL,
+        telefono VARCHAR(20) NOT NULL,
+        contacto VARCHAR(150) NULL,
+        fecha DATE NULL,
+        manifiesto VARCHAR(60) NOT NULL,
+        placa VARCHAR(30) NULL,
+        INDEX (campana_id), INDEX (telefono)
     ) CHARACTER SET utf8mb4""",
     """CREATE TABLE IF NOT EXISTS wa_respuestas (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -77,14 +102,18 @@ def asegurar_tablas():
         return
     for sql in _TABLAS:
         _ejecutar(sql, commit=True)
-    # Columnas del adjunto guardado en OneDrive (se agregan a las instalaciones anteriores)
-    existentes = {r["COLUMN_NAME"] for r in _ejecutar(
-        "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
-        "AND TABLE_NAME = 'wa_respuestas'")}
-    for col, tipo in (("archivo_estado", "VARCHAR(12) NULL"), ("archivo_nombre", "VARCHAR(255) NULL"),
-                      ("archivo_url", "VARCHAR(800) NULL"), ("archivo_error", "VARCHAR(255) NULL")):
-        if col not in existentes:
-            _ejecutar("ALTER TABLE wa_respuestas ADD COLUMN %s %s" % (col, tipo), commit=True)
+    # Columnas agregadas después de la primera versión (instalaciones anteriores)
+    for tabla, cols in (
+            ("wa_respuestas", (("archivo_estado", "VARCHAR(12) NULL"), ("archivo_nombre", "VARCHAR(255) NULL"),
+                               ("archivo_url", "VARCHAR(800) NULL"), ("archivo_error", "VARCHAR(255) NULL"))),
+            ("wa_campanas", (("plantilla2", "TEXT NULL"),)),
+            ("wa_mensajes", (("aviso", "TINYINT NOT NULL DEFAULT 1"), ("manifiestos", "TEXT NULL")))):
+        existentes = {r["COLUMN_NAME"] for r in _ejecutar(
+            "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = %s", [tabla])}
+        for col, tipo in cols:
+            if col not in existentes:
+                _ejecutar("ALTER TABLE %s ADD COLUMN %s %s" % (tabla, col, tipo), commit=True)
     _CREADAS = True
 
 
@@ -143,42 +172,116 @@ def normalizar_telefono(valor, pais="57"):
     return d, None
 
 
-def armar_texto(plantilla, d):
-    """Reemplaza {campo} por su valor; lo desconocido se deja tal cual."""
-    contacto = (d.get("contacto") or "").strip()
-    datos = dict(d, contacto_saludo=(" " + contacto) if contacto else "")
-    return re.sub(r"\{(\w+)\}", lambda m: str(datos.get(m.group(1)) or "") if m.group(1) in datos else m.group(0),
-                  plantilla).strip()
+_RE_ITEM = re.compile(r"\{(fecha|num|manifiesto|placa)\}")
+VACIO = "—"
+
+
+def armar_texto(plantilla, contacto, items):
+    """Arma el mensaje de un contacto. items: [{fecha (date|None), manifiesto, placa}].
+    Las líneas con {fecha}/{num}/{placa} se repiten por cada manifiesto; {nombre_conductor} y {x} (cantidad)
+    se reemplazan en el resto. Lo que no se reconoce se deja tal cual."""
+    nombre = (contacto or "").strip()
+    generales = {"nombre_conductor": nombre, "contacto": nombre, "nombre": nombre,
+                 "x": str(len(items)), "cantidad": str(len(items))}
+
+    def sustituir(linea, datos):
+        return re.sub(r"\{(\w+)\}", lambda m: datos[m.group(1)] if m.group(1) in datos else m.group(0), linea)
+
+    salida, bloque = [], []
+
+    def volcar():
+        for it in items:
+            datos = {**generales, "fecha": it["fecha"].strftime("%d/%m/%Y") if it.get("fecha") else VACIO,
+                     "num": it["manifiesto"], "manifiesto": it["manifiesto"], "placa": it.get("placa") or VACIO}
+            salida.extend(sustituir(l, datos) for l in bloque)
+        bloque.clear()
+
+    for linea in plantilla.replace("\r\n", "\n").split("\n"):
+        if _RE_ITEM.search(linea):
+            bloque.append(linea.rstrip(" -"))        # quita el " - " sobrante al final de la línea de ejemplo
+            continue
+        if bloque:
+            volcar()
+        salida.append(sustituir(linea, generales))
+    if bloque:
+        volcar()
+    texto = "\n".join(salida)
+    texto = re.sub(r"[ \t]+([,.;:!?])", r"\1", texto)      # "Hola ," -> "Hola," cuando no hay nombre
+    texto = re.sub(r"(?<=\S)[ \t]{2,}", " ", texto)
+    return "\n".join(l.rstrip() for l in texto.split("\n")).strip()
 
 
 # ---------------------------------------------------------------- campañas
-def crear_campana(nombre, plantilla, usuario, filas):
-    """filas: dicts con manifiesto, cliente, orden_cargue, remesa, contacto, telefono. Devuelve el id."""
+def crear_campana(nombre, plantilla, plantilla2, usuario, contactos):
+    """contactos: [{telefono, contacto, items: [{fecha, manifiesto, placa}]}]. Un mensaje por contacto. Devuelve el id."""
     asegurar_tablas()
     db = get_db()
     try:
         with db.cursor() as cur:
-            cur.execute("INSERT INTO wa_campanas (nombre, plantilla, creada_por, creada_en) VALUES (%s,%s,%s,%s)",
-                        [nombre, plantilla, usuario, ahora()])
+            cur.execute("INSERT INTO wa_campanas (nombre, plantilla, plantilla2, creada_por, creada_en) "
+                        "VALUES (%s,%s,%s,%s,%s)", [nombre, plantilla, plantilla2, usuario, ahora()])
             cid = cur.lastrowid
-            cur.executemany(
-                "INSERT INTO wa_mensajes (campana_id, manifiesto, cliente, orden_cargue, remesa, contacto, telefono, "
-                "texto, creado_en) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-                [[cid, f["manifiesto"], f["cliente"], f["orden_cargue"], f["remesa"], f["contacto"], f["telefono"],
-                  armar_texto(plantilla, f), ahora()] for f in filas])
+            for c in contactos:
+                cur.executemany(
+                    "INSERT INTO wa_items (campana_id, telefono, contacto, fecha, manifiesto, placa) "
+                    "VALUES (%s,%s,%s,%s,%s,%s)",
+                    [[cid, c["telefono"], c["contacto"], i["fecha"], i["manifiesto"], i["placa"]] for i in c["items"]])
+                lista = [i["manifiesto"] for i in c["items"]]
+                cur.execute(
+                    "INSERT INTO wa_mensajes (campana_id, aviso, manifiesto, manifiestos, contacto, telefono, texto, "
+                    "creado_en) VALUES (%s,1,%s,%s,%s,%s,%s,%s)",
+                    [cid, lista[0][:60], ", ".join(lista), c["contacto"], c["telefono"],
+                     armar_texto(plantilla, c["contacto"], c["items"]), ahora()])
         db.commit()
         return cid
     finally:
         db.close()
 
 
+def items_por_telefono(cid):
+    """{telefono: [{fecha, manifiesto, placa}]} de la campaña."""
+    d = {}
+    for i in _ejecutar("SELECT telefono, contacto, fecha, manifiesto, placa FROM wa_items WHERE campana_id = %s ORDER BY id", [cid]):
+        d.setdefault(i["telefono"], []).append(i)
+    return d
+
+
+def candidatos_segundo(cid):
+    """(sin_respuesta, con_respuesta): contactos del 1.er aviso ya enviado que aún no tienen 2.º aviso."""
+    filas = _ejecutar(
+        "SELECT m.*, (SELECT COUNT(*) FROM wa_respuestas r JOIN wa_mensajes x ON x.id = r.mensaje_id "
+        "WHERE x.campana_id = m.campana_id AND x.telefono = m.telefono) AS n_resp "
+        "FROM wa_mensajes m WHERE m.campana_id = %s AND m.aviso = 1 AND m.estado IN ('enviado','entregado','leido') "
+        "AND NOT EXISTS (SELECT 1 FROM wa_mensajes s WHERE s.campana_id = m.campana_id AND s.telefono = m.telefono "
+        "AND s.aviso = 2) ORDER BY m.id", [cid])
+    return [f for f in filas if not f["n_resp"]], [f for f in filas if f["n_resp"]]
+
+
+def crear_segundo_aviso(cid, plantilla2, incluir_respondieron=False):
+    """Crea (ya en cola) el 2.º aviso para quienes no han respondido. Devuelve cuántos."""
+    sin, con = candidatos_segundo(cid)
+    destinos = sin + (con if incluir_respondieron else [])
+    items = items_por_telefono(cid)
+    for d in destinos:
+        lista = items.get(d["telefono"]) or []
+        if not lista:
+            continue
+        _ejecutar("INSERT INTO wa_mensajes (campana_id, aviso, manifiesto, manifiestos, contacto, telefono, texto, "
+                  "estado, creado_en) VALUES (%s,2,%s,%s,%s,%s,%s,'en_cola',%s)",
+                  [cid, d["manifiesto"], d["manifiestos"], d["contacto"], d["telefono"],
+                   armar_texto(plantilla2, d["contacto"], lista), ahora()], commit=True)
+    return len(destinos)
+
+
 def campanas():
     asegurar_tablas()
     return _ejecutar(
-        "SELECT c.*, COUNT(m.id) AS total, "
+        "SELECT c.*, SUM(m.aviso = 1) AS total, "
         "SUM(m.estado='pendiente') AS pendientes, SUM(m.estado='en_cola') AS en_cola, "
-        "SUM(m.estado IN ('enviado','entregado','leido')) AS enviados, SUM(m.estado IN ('entregado','leido')) AS entregados, "
-        "SUM(m.estado='leido') AS leidos, SUM(m.estado='error') AS errores, "
+        "SUM(m.aviso = 1 AND m.estado IN ('enviado','entregado','leido')) AS enviados, "
+        "SUM(m.aviso = 1 AND m.estado IN ('entregado','leido')) AS entregados, "
+        "SUM(m.aviso = 1 AND m.estado='leido') AS leidos, SUM(m.estado='error') AS errores, "
+        "SUM(m.aviso = 2 AND m.estado IN ('enviado','entregado','leido')) AS segundos, "
         "(SELECT COUNT(*) FROM wa_respuestas r JOIN wa_mensajes x ON x.id = r.mensaje_id WHERE x.campana_id = c.id) AS respuestas "
         "FROM wa_campanas c LEFT JOIN wa_mensajes m ON m.campana_id = c.id GROUP BY c.id ORDER BY c.id DESC")
 
@@ -206,14 +309,14 @@ def mensajes_por_ids(ids):
 
 
 def respuestas_de_campana(cid):
-    return _ejecutar("SELECT r.*, m.manifiesto, m.cliente, m.orden_cargue, m.remesa FROM wa_respuestas r "
+    return _ejecutar("SELECT r.*, COALESCE(m.manifiestos, m.manifiesto) AS manifiesto, m.contacto FROM wa_respuestas r "
                      "JOIN wa_mensajes m ON m.id = r.mensaje_id WHERE m.campana_id = %s ORDER BY r.id", [cid])
 
 
 def respuestas(limite=300):
     asegurar_tablas()
     return _ejecutar(
-        "SELECT r.*, m.manifiesto, m.cliente, m.orden_cargue, m.remesa, m.campana_id, c.nombre AS campana "
+        "SELECT r.*, COALESCE(m.manifiestos, m.manifiesto) AS manifiesto, m.contacto, m.campana_id, c.nombre AS campana "
         "FROM wa_respuestas r LEFT JOIN wa_mensajes m ON m.id = r.mensaje_id "
         "LEFT JOIN wa_campanas c ON c.id = m.campana_id ORDER BY r.id DESC LIMIT %s", [limite])
 
@@ -288,7 +391,8 @@ def guardar_respuesta(telefono, texto, tipo, wa_id, citado_id, recibida, con_arc
         _ejecutar("UPDATE wa_mensajes SET estado='leido', entregado_en=COALESCE(entregado_en, %s), "
                   "leido_en=COALESCE(leido_en, %s) WHERE id=%s AND estado IN ('enviado','entregado')",
                   [recibida, recibida, mid], commit=True)
-    mensaje = _ejecutar("SELECT id, manifiesto, cliente, telefono FROM wa_mensajes WHERE id = %s", [mid], uno=True) if mid else None
+    mensaje = _ejecutar("SELECT id, COALESCE(manifiestos, manifiesto) AS manifiesto, cliente, telefono FROM wa_mensajes "
+                        "WHERE id = %s", [mid], uno=True) if mid else None
     return rid, mensaje
 
 
