@@ -34,7 +34,7 @@
             <td>{% if r.campana_id %}<a href="{{ url_for('whatsapp.detalle', cid=r.campana_id) }}">{{ r.campana }}</a>{% endif %}</td>
             <td>{{ r.contacto or '—' }}</td>
             <td>{% if r.tel_enviado %}{{ r.tel_enviado|tel }}{% else %}<span class="nota">sin envío ligado</span>{% endif %}</td>
-            <td>{{ r.telefono|tel }}{% if r.tel_enviado and r.tel_enviado != r.telefono %}<br><span class="nota">otro número</span>{% endif %}</td>
+            <td>{% if not r.tel_enviado and r.telefono|length >= 14 %}<span class="nota">ID interno de WhatsApp (número no disponible)</span>{% else %}{{ r.telefono|tel }}{% if r.tel_enviado and r.tel_enviado != r.telefono %}<br><span class="nota">otro número</span>{% endif %}{% endif %}</td>
             <td>{{ r.manifiesto or '' }}</td>
             <td>{{ r.placas or '' }}</td>
             <td>{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td>

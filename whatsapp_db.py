@@ -52,6 +52,7 @@ _TABLAS = [
         remesa VARCHAR(60) NULL,
         contacto VARCHAR(150) NULL,
         telefono VARCHAR(20) NOT NULL,
+        chat_id VARCHAR(60) NULL,
         texto TEXT NOT NULL,
         estado VARCHAR(12) NOT NULL DEFAULT 'pendiente',
         wa_id VARCHAR(120) NULL,
@@ -80,6 +81,7 @@ _TABLAS = [
         tipo VARCHAR(20) NOT NULL DEFAULT 'chat',
         wa_id VARCHAR(120) NULL,
         recibida_en DATETIME NOT NULL,
+        chat_id VARCHAR(60) NULL,
         INDEX (mensaje_id), INDEX (telefono), UNIQUE KEY uq_wa_id (wa_id)
     ) CHARACTER SET utf8mb4""",
     """CREATE TABLE IF NOT EXISTS wa_servicio (
@@ -105,9 +107,11 @@ def asegurar_tablas():
     # Columnas agregadas después de la primera versión (instalaciones anteriores)
     for tabla, cols in (
             ("wa_respuestas", (("archivo_estado", "VARCHAR(12) NULL"), ("archivo_nombre", "VARCHAR(255) NULL"),
-                               ("archivo_url", "VARCHAR(800) NULL"), ("archivo_error", "VARCHAR(255) NULL"))),
+                               ("archivo_url", "VARCHAR(800) NULL"), ("archivo_error", "VARCHAR(255) NULL"),
+                               ("chat_id", "VARCHAR(60) NULL"))),
             ("wa_campanas", (("plantilla2", "TEXT NULL"),)),
-            ("wa_mensajes", (("aviso", "TINYINT NOT NULL DEFAULT 1"), ("manifiestos", "TEXT NULL")))):
+            ("wa_mensajes", (("aviso", "TINYINT NOT NULL DEFAULT 1"), ("manifiestos", "TEXT NULL"),
+                             ("chat_id", "VARCHAR(60) NULL")))):
         existentes = {r["COLUMN_NAME"] for r in _ejecutar(
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
             "AND TABLE_NAME = %s", [tabla])}
@@ -133,9 +137,38 @@ def latido(estado, qr, numero, en_cola):
     if comando:
         _ejecutar("UPDATE wa_servicio SET comando = NULL WHERE id = 1", commit=True)
     if estado != "listo":
-        return comando, [], []
+        return comando, [], [], []
     filas = _ejecutar("SELECT id, telefono, texto FROM wa_mensajes WHERE estado = 'en_cola' ORDER BY id")
-    return comando, filas[:50], [f["id"] for f in filas]
+    return comando, filas[:50], [f["id"] for f in filas], lids_pendientes()
+
+
+def lids_pendientes(limite=20):
+    """Teléfonos de respuestas sin envío ligado: pueden ser IDs internos de WhatsApp que el servicio sabe traducir."""
+    return [f["telefono"] for f in _ejecutar(
+        "SELECT telefono FROM wa_respuestas WHERE mensaje_id IS NULL GROUP BY telefono ORDER BY MAX(id) DESC LIMIT %s",
+        [limite])]
+
+
+def corregir_lid(lid, telefono):
+    """Reemplaza el ID interno por el celular real en las respuestas y las liga al último aviso enviado a ese celular."""
+    filas = _ejecutar("SELECT id, mensaje_id, recibida_en FROM wa_respuestas WHERE telefono = %s", [lid])
+    if not filas:
+        return 0
+    _ejecutar("UPDATE wa_respuestas SET telefono = %s WHERE telefono = %s", [telefono, lid], commit=True)
+    for f in filas:
+        if f["mensaje_id"]:
+            continue
+        m = (_ejecutar("SELECT id FROM wa_mensajes WHERE telefono = %s AND estado IN ('enviado','entregado','leido') "
+                       "AND (enviado_en IS NULL OR enviado_en <= %s) ORDER BY enviado_en DESC, id DESC LIMIT 1",
+                       [telefono, f["recibida_en"]], uno=True)
+             or _ejecutar("SELECT id FROM wa_mensajes WHERE telefono = %s AND estado IN ('enviado','entregado','leido') "
+                          "ORDER BY enviado_en DESC, id DESC LIMIT 1", [telefono], uno=True))
+        if m:
+            _ejecutar("UPDATE wa_respuestas SET mensaje_id = %s WHERE id = %s", [m["id"], f["id"]], commit=True)
+            _ejecutar("UPDATE wa_mensajes SET estado='leido', entregado_en=COALESCE(entregado_en, %s), "
+                      "leido_en=COALESCE(leido_en, %s) WHERE id=%s AND estado IN ('enviado','entregado')",
+                      [f["recibida_en"], f["recibida_en"], m["id"]], commit=True)
+    return len(filas)
 
 
 def estado_servicio():
@@ -378,10 +411,11 @@ def reponer_en_cola(cid):
 
 
 # ---------------------------------------------------------------- eventos del servicio
-def resultado_envio(mid, ok, wa_id=None, error=None):
+def resultado_envio(mid, ok, wa_id=None, error=None, chat=None):
     if ok:
-        _ejecutar("UPDATE wa_mensajes SET estado='enviado', wa_id=%s, error=NULL, enviado_en=%s WHERE id=%s "
-                  "AND estado IN ('pendiente','en_cola','error')", [wa_id, ahora(), mid], commit=True)
+        _ejecutar("UPDATE wa_mensajes SET estado='enviado', wa_id=%s, chat_id=COALESCE(%s, chat_id), error=NULL, "
+                  "enviado_en=%s WHERE id=%s AND estado IN ('pendiente','en_cola','error')",
+                  [wa_id, (chat or None) and chat[:60], ahora(), mid], commit=True)
     else:
         _ejecutar("UPDATE wa_mensajes SET estado='error', error=%s WHERE id=%s AND estado IN ('pendiente','en_cola')",
                   [(error or "Error desconocido")[:255], mid], commit=True)
@@ -403,7 +437,7 @@ def confirmacion(wa_id, ack):
     _ejecutar("UPDATE wa_mensajes SET " + cols + " WHERE id=%s", params + [m["id"]], commit=True)
 
 
-def guardar_respuesta(telefono, texto, tipo, wa_id, citado_id, recibida, con_archivo=False):
+def guardar_respuesta(telefono, texto, tipo, wa_id, citado_id, recibida, con_archivo=False, chat_id=None):
     """Liga la respuesta al mensaje citado o, si no cita nada, al último enviado a ese teléfono.
     Devuelve (id_respuesta, mensaje) o (None, None) si ya estaba registrada. `mensaje` puede ser None."""
     asegurar_tablas()
@@ -411,16 +445,23 @@ def guardar_respuesta(telefono, texto, tipo, wa_id, citado_id, recibida, con_arc
     if citado_id:
         m = _ejecutar("SELECT id FROM wa_mensajes WHERE wa_id = %s", [citado_id], uno=True)
         mid = m["id"] if m else None
+    if not mid and chat_id:                           # cuentas con ID interno (@lid): se liga por el chat al que se envió
+        m = _ejecutar("SELECT id FROM wa_mensajes WHERE chat_id = %s AND estado IN ('enviado','entregado','leido') "
+                      "ORDER BY enviado_en DESC, id DESC LIMIT 1", [chat_id], uno=True)
+        mid = m["id"] if m else None
+        if m:
+            real = _ejecutar("SELECT telefono FROM wa_mensajes WHERE id = %s", [mid], uno=True)
+            telefono = real["telefono"] if real else telefono
     if not mid:
         m = _ejecutar("SELECT id FROM wa_mensajes WHERE telefono = %s AND estado IN ('enviado','entregado','leido') "
                       "ORDER BY enviado_en DESC, id DESC LIMIT 1", [telefono], uno=True)
         mid = m["id"] if m else None
     if wa_id and _ejecutar("SELECT id FROM wa_respuestas WHERE wa_id = %s", [wa_id], uno=True):
         return None, None                             # ya registrada
-    rid = _ejecutar("INSERT INTO wa_respuestas (mensaje_id, telefono, texto, tipo, wa_id, recibida_en, archivo_estado) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                    [mid, telefono, (texto or "")[:4000], tipo[:20], wa_id, recibida, "subiendo" if con_archivo else None],
-                    commit=True)
+    rid = _ejecutar("INSERT INTO wa_respuestas (mensaje_id, telefono, texto, tipo, wa_id, recibida_en, archivo_estado, "
+                    "chat_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    [mid, telefono, (texto or "")[:4000], tipo[:20], wa_id, recibida, "subiendo" if con_archivo else None,
+                     (chat_id or None) and chat_id[:60]], commit=True)
     if mid:   # si respondió, es que lo recibió y lo leyó
         _ejecutar("UPDATE wa_mensajes SET estado='leido', entregado_en=COALESCE(entregado_en, %s), "
                   "leido_en=COALESCE(leido_en, %s) WHERE id=%s AND estado IN ('enviado','entregado')",

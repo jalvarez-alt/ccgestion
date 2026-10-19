@@ -108,11 +108,15 @@ cl.on('message_ack', (msg, ack) => {
 cl.on('message', async (msg) => {
   try {
     if (msg.fromMe || msg.isStatus || msg.from.endsWith('@g.us') || msg.from === 'status@broadcast') return;
-    let telefono = msg.from.split('@')[0];
-    try {
-      const c = await msg.getContact();      // con "@lid" el número real sale del contacto
-      if (c && c.number) telefono = c.number;
-    } catch (_) { /* usa el id del chat */ }
+    const de = msg.from;                       // "5730...@c.us" o, para cuentas con ID interno, "9262...@lid"
+    let telefono = de.split('@')[0];
+    if (de.endsWith('@lid')) {
+      const real = await resolverLid(de);      // traduce el ID interno al celular real
+      if (real) telefono = real;
+      else {
+        try { const c = await msg.getContact(); if (c && c.number && c.number !== telefono) telefono = c.number; } catch (_) { /* queda el ID */ }
+      }
+    }
     let citado = null;
     if (msg.hasQuotedMsg) {
       try { citado = (await msg.getQuotedMessage()).id._serialized; } catch (_) { /* sin cita */ }
@@ -120,7 +124,7 @@ cl.on('message', async (msg) => {
     const conAdjunto = msg.hasMedia && ['image', 'document'].includes(msg.type);
     const resp = await avisar('respuesta', {
       telefono, texto: msg.body || '', tipo: msg.type || 'chat', wa_id: msg.id._serialized,
-      citado_id: citado, ts: msg.timestamp, tiene_archivo: conAdjunto,
+      citado_id: citado, ts: msg.timestamp, tiene_archivo: conAdjunto, chat_id: de,
     });
     if (conAdjunto && resp && resp.respuesta_id) procesarAdjunto(msg, resp, telefono);
   } catch (e) {
@@ -180,8 +184,22 @@ async function enviarUno(m) {
   if (!id) return avisar('estado', { id: m.id, ok: false, error: 'Ese número no tiene WhatsApp' });
   const enviado = await client.sendMessage(id._serialized, m.texto, { sendSeen: false });
   // La librería a veces envía el mensaje pero no devuelve su modelo: se da por enviado (sin seguimiento de lectura).
-  return avisar('estado', { id: m.id, ok: true, wa_id: enviado && enviado.id ? enviado.id._serialized : null });
+  // Si WhatsApp usa un ID interno (@lid) para este chat, se informa para poder ligar las respuestas.
+  const chat = enviado && enviado.to && String(enviado.to).endsWith('@lid') ? enviado.to : null;
+  return avisar('estado', { id: m.id, ok: true, wa_id: enviado && enviado.id ? enviado.id._serialized : null, chat });
 }
+
+// Celular real de un ID interno de WhatsApp ("9262...@lid"). null si no se puede resolver.
+async function resolverLid(lid) {
+  try {
+    const r = await client.getContactLidAndPhone([lid]);
+    const pn = r && r[0] && r[0].pn;
+    return pn ? String(pn).split('@')[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+const lidProbados = new Map();          // lid -> momento del último intento (no reintentar cada 10 s)
 
 async function procesarCola() {
   if (procesando) return;
@@ -246,6 +264,14 @@ async function sondear() {
       if (vistos.has(m.id) || !Number.isInteger(m.id) || !/^\d{10,15}$/.test(String(m.telefono)) || !m.texto) continue;
       vistos.set(m.id, ahora);
       cola.push(m);
+    }
+    // Respuestas guardadas con ID interno y sin celular: se intenta traducirlas y ccgestion las corrige/liga.
+    for (const [lid, t] of lidProbados) if (ahora - t > 60 * 60 * 1000) lidProbados.delete(lid);
+    for (const lid of r.lids || []) {
+      if (lidProbados.has(lid) || estado.estado !== 'listo') continue;
+      lidProbados.set(lid, ahora);
+      const real = await resolverLid(lid + '@lid');
+      if (real && real !== lid) { console.log('ID interno', lid, '->', real); await avisar('lid', { lid, telefono: real }); } else console.log('ID interno', lid, 'sin celular disponible');
     }
     if (cola.length) procesarCola();
     if (r.comando === 'cerrar') await cerrarSesion();

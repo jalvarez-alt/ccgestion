@@ -17,7 +17,7 @@ from seguridad import requiere_permiso, tiene
 
 bp = Blueprint("whatsapp", __name__, url_prefix="/whatsapp")
 EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-WEBHOOKS = ("whatsapp.webhook_estado", "whatsapp.webhook_respuesta", "whatsapp.webhook_archivo", "whatsapp.webhook_latido")
+WEBHOOKS = ("whatsapp.webhook_estado", "whatsapp.webhook_respuesta", "whatsapp.webhook_archivo", "whatsapp.webhook_latido", "whatsapp.webhook_lid")
 
 COLUMNAS = [("fecha", "Fecha", "2026-10-15"), ("manifiesto", "Manifiesto", "MF-123456"),
             ("placa", "Placa", "ABC123"), ("celular", "Celular", "3001234567"), ("contacto", "Contacto", "Juan Pérez")]
@@ -314,7 +314,7 @@ def webhook_estado():
     if "ack" in d:
         W.confirmacion(d.get("wa_id"), int(d["ack"]))
     elif d.get("id"):
-        W.resultado_envio(int(d["id"]), bool(d.get("ok")), d.get("wa_id"), d.get("error"))
+        W.resultado_envio(int(d["id"]), bool(d.get("ok")), d.get("wa_id"), d.get("error"), str(d.get("chat") or "") or None)
     return jsonify(ok=True)
 
 
@@ -329,7 +329,8 @@ def webhook_respuesta():
     except (ValueError, OSError):
         cuando = W.ahora()
     rid, m = W.guardar_respuesta(tel, d.get("texto"), str(d.get("tipo") or "chat"), d.get("wa_id"), d.get("citado_id"),
-                                 cuando, con_archivo=bool(d.get("tiene_archivo")))
+                                 cuando, con_archivo=bool(d.get("tiene_archivo")),
+                                 chat_id=str(d.get("chat_id") or "") or None)
     # El servicio usa el manifiesto/cliente para nombrar y ubicar el adjunto en OneDrive
     return jsonify(ok=True, respuesta_id=rid, mensaje=({"manifiesto": m["manifiesto"], "cliente": m["cliente"]} if m else None))
 
@@ -348,6 +349,17 @@ def webhook_latido():
     """Señal periódica del servicio: estado/QR; responde con los mensajes por enviar y órdenes pendientes."""
     d = request.get_json(silent=True) or {}
     qr = d.get("qr") if isinstance(d.get("qr"), str) and d["qr"].startswith("data:image/png;base64,") else None
-    comando, mensajes, vigentes = W.latido(str(d.get("estado") or "desconocido")[:20], qr,
+    comando, mensajes, vigentes, lids = W.latido(str(d.get("estado") or "desconocido")[:20], qr,
                                           str(d.get("numero") or "")[:30] or None, int(d.get("en_cola") or 0))
-    return jsonify(ok=True, comando=comando, mensajes=mensajes, vigentes=vigentes)
+    return jsonify(ok=True, comando=comando, mensajes=mensajes, vigentes=vigentes, lids=lids)
+
+
+@bp.route("/webhook/lid", methods=["POST"])
+def webhook_lid():
+    """El servicio tradujo un ID interno de WhatsApp a su celular real: se corrigen y ligan las respuestas."""
+    d = request.get_json(silent=True) or {}
+    lid = "".join(ch for ch in str(d.get("lid", "")) if ch.isdigit())[:20]
+    tel = "".join(ch for ch in str(d.get("telefono", "")) if ch.isdigit())[:20]
+    if not lid or not tel or lid == tel:
+        return jsonify(ok=False), 400
+    return jsonify(ok=True, corregidas=W.corregir_lid(lid, tel))
