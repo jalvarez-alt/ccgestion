@@ -60,17 +60,17 @@
         <span class="nota">Marca contactos en la tabla (o usa el botón de cada fila). «Finalizar» = ya entregó el documento: sale del segundo aviso.</span>
     </form>
     {% endif %}
-    <div class="tabla-scroll"><table>
+    <div class="tabla-scroll"><table class="tabla-wa">
         <thead><tr>{% if puede('whatsapp.enviar') %}<th><input type="checkbox" id="marcar-todos" title="Marcar todos" aria-label="Marcar todos"></th>{% endif %}<th>Contacto</th><th>Aviso</th><th>Manifiestos</th><th>Estado</th><th>Enviado</th><th>Respuesta</th>{% if puede('whatsapp.enviar') %}<th>Gestión</th>{% endif %}</tr></thead>
         <tbody>{% for m in msgs %}
         <tr{% if m.finalizado %} style="opacity:.6"{% endif %}>
             {% if puede('whatsapp.enviar') %}<td>{% if m.aviso == 1 %}<input type="checkbox" name="ids" value="{{ m.id }}" form="form-masivo" aria-label="Seleccionar {{ m.contacto or m.telefono }}">{% endif %}</td>{% endif %}
-            <td>{{ m.contacto or '—' }}<br><span class="nota">{{ m.telefono }}</span></td>
+            <td><strong>{{ m.contacto or '—' }}</strong><br><span class="nw">{{ m.telefono|tel }}</span></td>
             <td>{{ m.aviso }}.º</td>
-            <td>{% if items.get(m.telefono) %}{% for i in items[m.telefono] %}{{ i.fecha.strftime('%d/%m/%Y') if i.fecha else '—' }} · {{ i.manifiesto }} · {{ i.placa or '—' }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% else %}{{ m.manifiestos or m.manifiesto or '' }}{% endif %}</td>
+            <td>{% if items.get(m.telefono) %}{% for i in items[m.telefono] %}<span class="nw">{{ i.fecha.strftime('%d/%m/%Y') if i.fecha else '—' }} · {{ i.manifiesto }} · {{ i.placa or '—' }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}{% else %}{{ m.manifiestos or m.manifiesto or '' }}{% endif %}</td>
             <td>{{ WA_ESTADOS[m.estado] }}{% if m.error %}<br><span class="nota">{{ m.error }}</span>{% endif %}{% if m.finalizado %}<br><strong>✔ Finalizado</strong>{% endif %}</td>
-            <td>{{ m.enviado_en.strftime('%d/%m %H:%M') if m.enviado_en else '' }}</td>
-            <td>{% if m.n_resp %}<strong>{{ m.n_resp }}</strong> · {{ (m.ultima_resp or '')[:120] }}{% endif %}</td>
+            <td class="nw">{{ m.enviado_en.strftime('%d/%m %H:%M') if m.enviado_en else '' }}</td>
+            <td class="resp">{% if m.n_resp %}<strong>{{ m.n_resp }}</strong> · {{ (m.ultima_resp or '')[:120] }}{% endif %}</td>
             {% if puede('whatsapp.enviar') %}<td>{% if m.aviso == 1 %}
                 <form method="post" action="{{ url_for('whatsapp.finalizar', cid=c.id) }}" style="display:inline">
                     <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="ids" value="{{ m.id }}"><input type="hidden" name="estado" value="{{ filtro or '' }}">
@@ -93,9 +93,9 @@
 {% if resp %}
 <div class="panel">
     <h2>Respuestas recibidas ({{ resp|length }})</h2>
-    <div class="tabla-scroll"><table>
-        <thead><tr><th>Recibida</th><th>Contacto</th><th>Enviado al celular</th><th>Manifiestos</th><th>Placas</th><th>Respuesta</th></tr></thead>
-        <tbody>{% for r in resp %}<tr><td>{{ r.recibida_en.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ r.contacto or '—' }}</td><td>{{ (r.tel_enviado or r.telefono)|tel }}{% if r.tel_enviado and r.tel_enviado != r.telefono %}<br><span class="nota">respondió desde {{ r.telefono|tel }}</span>{% endif %}</td><td>{{ r.manifiesto }}</td><td>{{ r.placas or '' }}</td><td>{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody>
+    <div class="tabla-scroll"><table class="tabla-wa">
+        <thead><tr><th>Recibida</th><th>Contacto y celular</th><th>Manifiestos y placas</th><th>Respuesta</th></tr></thead>
+        <tbody>{% for r in resp %}<tr><td class="nw">{{ r.recibida_en.strftime('%d/%m/%Y') }}<br>{{ r.recibida_en.strftime('%H:%M') }}</td><td><strong>{{ r.contacto or '—' }}</strong><br><span class="nw">{{ (r.tel_enviado or r.telefono)|tel }}</span>{% if r.tel_enviado and r.tel_enviado != r.telefono %}<br><span class="nota">respondió desde {{ r.telefono|tel }}</span>{% endif %}</td><td>{{ r.manifiesto }}{% if r.placas %}<br><span class="nota">Placa: {{ r.placas }}</span>{% endif %}</td><td class="resp">{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>
 </div>
 {% endif %}

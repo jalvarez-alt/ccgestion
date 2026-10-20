@@ -6,7 +6,7 @@
 
 <form method="get" class="panel">
     <h2>Filtrar</h2>
-    <div class="grid">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
         <label class="campo">Placa <input type="text" name="placa" value="{{ f.placa }}" maxlength="30" placeholder="ABC123"></label>
         <label class="campo">Contacto <input type="text" name="contacto" value="{{ f.contacto }}" maxlength="80" placeholder="Nombre del conductor"></label>
         <label class="campo">Manifiesto <input type="text" name="manifiesto" value="{{ f.manifiesto }}" maxlength="60" placeholder="MF-123456"></label>
@@ -27,18 +27,21 @@
 
 <div class="panel">
     <h2>{{ filas|length }} respuesta(s){% if filtrado %} con esos filtros{% endif %}</h2>
-    <div class="tabla-scroll"><table>
-        <thead><tr><th>Recibida</th><th>Campaña</th><th>Contacto</th><th>Enviado al celular</th><th>Respondió desde</th><th>Manifiestos</th><th>Placas</th><th>Respuesta</th></tr></thead>
+    <div class="tabla-scroll"><table class="tabla-wa">
+        <thead><tr><th>Recibida</th><th>Contacto y celular</th><th>Manifiestos y placas</th><th>Campaña</th><th>Respuesta</th></tr></thead>
         <tbody>{% for r in filas %}<tr>
-            <td>{{ r.recibida_en.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td class="nw">{{ r.recibida_en.strftime('%d/%m/%Y') }}<br>{{ r.recibida_en.strftime('%H:%M') }}</td>
+            <td>
+                {% if r.contacto %}<strong>{{ r.contacto }}</strong><br>{% endif %}
+                {% if r.tel_enviado %}<span class="nw">{{ r.tel_enviado|tel }}</span>
+                    {% if r.tel_enviado != r.telefono %}<br><span class="nota">respondió desde {{ r.telefono|tel }}</span>{% endif %}
+                {% elif r.telefono|length >= 14 %}<span class="nota">ID interno de WhatsApp (sin número) · sin envío ligado</span>
+                {% else %}<span class="nw">{{ r.telefono|tel }}</span><br><span class="nota">sin envío ligado</span>{% endif %}
+            </td>
+            <td>{{ r.manifiesto or '' }}{% if r.placas %}<br><span class="nota">Placa: {{ r.placas }}</span>{% endif %}</td>
             <td>{% if r.campana_id %}<a href="{{ url_for('whatsapp.detalle', cid=r.campana_id) }}">{{ r.campana }}</a>{% endif %}</td>
-            <td>{{ r.contacto or '—' }}</td>
-            <td>{% if r.tel_enviado %}{{ r.tel_enviado|tel }}{% else %}<span class="nota">sin envío ligado</span>{% endif %}</td>
-            <td>{% if not r.tel_enviado and r.telefono|length >= 14 %}<span class="nota">ID interno de WhatsApp (número no disponible)</span>{% else %}{{ r.telefono|tel }}{% if r.tel_enviado and r.tel_enviado != r.telefono %}<br><span class="nota">otro número</span>{% endif %}{% endif %}</td>
-            <td>{{ r.manifiesto or '' }}</td>
-            <td>{{ r.placas or '' }}</td>
-            <td>{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td>
-        </tr>{% else %}<tr><td colspan="8">{% if filtrado %}Ninguna respuesta coincide con esos filtros.{% else %}Sin respuestas todavía.{% endif %}</td></tr>{% endfor %}</tbody>
+            <td class="resp">{{ r.texto or ('(' ~ r.tipo ~ ')') }}{% if r.archivo_estado %}<br>{% if r.archivo_estado == 'guardado' and r.archivo_url %}<a href="{{ r.archivo_url }}" target="_blank" rel="noopener">📎 {{ r.archivo_nombre }} (OneDrive)</a>{% elif r.archivo_estado == 'subiendo' %}<span class="nota">📎 subiendo a OneDrive…{% if r.archivo_error %} ({{ r.archivo_error }}){% endif %}</span>{% elif r.archivo_estado == 'omitido' %}<span class="nota">📎 adjunto no guardado ({{ r.archivo_error or 'tipo no admitido' }})</span>{% else %}<span class="nota">📎 error al guardar: {{ r.archivo_error }}</span>{% endif %}{% endif %}</td>
+        </tr>{% else %}<tr><td colspan="5">{% if filtrado %}Ninguna respuesta coincide con esos filtros.{% else %}Sin respuestas todavía.{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>
 </div>
 {% endblock %}

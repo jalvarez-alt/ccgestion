@@ -433,3 +433,13 @@ header { z-index: 40; }
 .bienvenida p { color: var(--tinta-suave); margin-bottom: 28px; }
 .bienvenida .boton { display: block; margin: 0 0 14px; padding: 15px 20px; font-size: 1.05rem; border-radius: 14px; }
 .bienvenida small { display: block; color: var(--tinta-tenue); margin-top: 6px; font-size: .82rem; }
+
+/* Tablas de WhatsApp: compactas para que quepan y se lean sin desplazarse de lado */
+.tabla-wa { font-size: .8rem; }
+.tabla-wa th, .tabla-wa td { padding: 7px 9px; }
+.tabla-scroll .tabla-wa td:nth-child(2) { white-space: normal; }
+.tabla-wa .nw { white-space: nowrap; }
+.tabla-wa .resp { min-width: 240px; max-width: 460px; overflow-wrap: anywhere; }
+.tabla-wa .nota { font-size: .74rem; }
+.tabla-wa td strong { color: var(--cabecera); }
+.tabla-wa button, .tabla-wa .boton { padding: 4px 12px; font-size: .78rem; }
