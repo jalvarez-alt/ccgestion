@@ -205,15 +205,20 @@ def campana_o_404(cid):
 def detalle(cid):
     c = campana_o_404(cid)
     estado = request.args.get("estado")
+    if estado != "finalizado" and estado not in W.ESTADOS:
+        estado = None
     est, error = estado_servicio()
     msgs = W.mensajes(cid, estado)
-    conteo = {}
+    conteo, finalizados = {}, 0
     for m in W.mensajes(cid):
-        conteo[m["estado"]] = conteo.get(m["estado"], 0) + 1
+        if m["finalizado"]:                     # lo finalizado no cuenta como pendiente/en cola/error
+            finalizados += m["aviso"] == 1
+        else:
+            conteo[m["estado"]] = conteo.get(m["estado"], 0) + 1
     sin, con = W.candidatos_segundo(cid) if c["plantilla2"] else ([], [])
     return render_template("whatsapp/campana.html", c=c, msgs=msgs, conteo=conteo, filtro=estado, est=est,
                            error_servicio=error, resp=W.respuestas_de_campana(cid), items=W.items_por_telefono(cid),
-                           segundo_sin=len(sin), segundo_con=len(con))
+                           segundo_sin=len(sin), segundo_con=len(con), finalizados=finalizados)
 
 
 @bp.route("/<int:cid>/enviar", methods=["POST"])
@@ -225,7 +230,7 @@ def enviar(cid):
         flash(error or "WhatsApp no está conectado. Ve a «Conexión» y escanea el QR.")
         return redirect(url_for("whatsapp.detalle", cid=cid))
     estados = ("pendiente", "error") if request.form.get("reintentar") == "1" else ("pendiente",)
-    pendientes = [m for m in W.mensajes(cid) if m["estado"] in estados]
+    pendientes = [m for m in W.mensajes(cid) if m["estado"] in estados and not m["finalizado"]]
     if not pendientes:
         flash("No hay mensajes por enviar.")
         return redirect(url_for("whatsapp.detalle", cid=cid))
@@ -252,6 +257,24 @@ def segundo_aviso(cid):
     return redirect(url_for("whatsapp.detalle", cid=cid))
 
 
+@bp.route("/<int:cid>/finalizar", methods=["POST"])
+@requiere_permiso("whatsapp.enviar")
+def finalizar(cid):
+    """Finaliza (o reabre) uno o varios contactos de la campaña."""
+    campana_o_404(cid)
+    ids = [int(x) for x in request.form.getlist("ids") if x.isdigit()]
+    volver = request.form.get("estado")
+    volver = volver if volver == "finalizado" or volver in W.ESTADOS else None
+    if not ids:
+        flash("Selecciona al menos un contacto.")
+    else:
+        reabrir = request.form.get("accion") == "reabrir"
+        n = W.finalizar(cid, ids, g.usuario["nombre"], not reabrir)
+        flash(("%d contacto(s) reabierto(s)." if reabrir else
+               "%d contacto(s) finalizado(s): no recibirán más mensajes ni el segundo aviso.") % n)
+    return redirect(url_for("whatsapp.detalle", cid=cid, estado=volver))
+
+
 @bp.route("/<int:cid>/reponer", methods=["POST"])
 @requiere_permiso("whatsapp.enviar")
 def reponer(cid):
@@ -272,10 +295,12 @@ def exportar(cid):
     wb = Workbook()
     wb.remove(wb.active)
     _hoja(wb, "Envíos", ["Contacto", "Celular", "Aviso", "Manifiestos", "Estado", "Enviado", "Entregado", "Leído",
-                         "Respuestas", "Última respuesta", "Error"],
+                         "Respuestas", "Última respuesta", "Error", "Finalizado"],
           [[m["contacto"] or "", m["telefono"], m["aviso"], m["manifiestos"] or m["manifiesto"] or "",
             W.ESTADOS.get(m["estado"], m["estado"]), fmt(m["enviado_en"]), fmt(m["entregado_en"]), fmt(m["leido_en"]),
-            m["n_resp"], m["ultima_resp"] or "", m["error"] or ""] for m in msgs])
+            m["n_resp"], m["ultima_resp"] or "", m["error"] or "",
+            ("Sí · %s · %s" % (m["finalizado_por"] or "", fmt(m["finalizado_en"]))) if m["finalizado"] else ""]
+           for m in msgs])
     _hoja(wb, "Manifiestos", ["Contacto", "Celular", "Fecha", "Manifiesto", "Placa"],
           [[(i["contacto"] if "contacto" in i else "") or "", tel, i["fecha"].strftime("%Y-%m-%d") if i["fecha"] else "",
             i["manifiesto"], i["placa"] or ""] for tel, lista in W.items_por_telefono(cid).items() for i in lista])

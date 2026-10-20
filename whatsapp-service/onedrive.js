@@ -118,4 +118,22 @@ async function subir(cliente, nombreArchivo, buffer, mimetype) {
   return { nombre: item.name, url: item.webUrl, carpeta };
 }
 
-module.exports = { configurado, subir, limpiarNombre };
+// Prueba de conexión: credenciales, lectura de la carpeta base y una subida de prueba (que se borra).
+async function probar() {
+  if (!configurado()) throw new Error('Faltan variables GRAPH_* en .env (GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, GRAPH_USER)');
+  const pasos = [];
+  await obtenerToken();
+  pasos.push('1/4 Microsoft aceptó las credenciales');
+  const carpetas = await listarCarpetas(true);
+  pasos.push('2/4 Carpeta base «' + (BASE || '(raíz del OneDrive)') + '»: ' + (carpetas.length
+    ? carpetas.length + ' carpeta(s) de clientes encontradas, p. ej. ' + carpetas.slice(0, 3).join(', ')
+    : 'vacía o inexistente (se creará al subir el primer archivo; revisa que el nombre sea el correcto)'));
+  const r = await subir('_prueba_ccgestion', 'prueba.txt', Buffer.from('prueba de conexión ccgestion'), 'text/plain');
+  pasos.push('3/4 Subida de prueba correcta: ' + r.url);
+  const ruta = [BASE, '_prueba_ccgestion'].filter(Boolean).join('/');
+  const borrado = await graph(base() + '/root:/' + segmentos(ruta), { method: 'DELETE' });
+  pasos.push(borrado.ok ? '4/4 Carpeta de prueba borrada' : '4/4 No se pudo borrar la carpeta de prueba: bórrala a mano (_prueba_ccgestion)');
+  return pasos;
+}
+
+module.exports = { configurado, subir, limpiarNombre, probar };

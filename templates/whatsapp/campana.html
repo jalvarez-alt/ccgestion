@@ -9,6 +9,7 @@
     {% elif est.estado != 'listo' %}<p>WhatsApp no está conectado. <a href="{{ url_for('whatsapp.conexion') }}">Escanear QR</a></p>{% endif %}
     <p>
         {% for k, n in conteo.items() %}<a href="{{ url_for('whatsapp.detalle', cid=c.id, estado=k) }}"><strong>{{ n }}</strong> {{ WA_ESTADOS[k] }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+        {% if finalizados %}{% if conteo %} · {% endif %}<a href="{{ url_for('whatsapp.detalle', cid=c.id, estado='finalizado') }}"><strong>{{ finalizados }}</strong> Finalizados</a>{% endif %}
         {% if filtro %} · <a href="{{ url_for('whatsapp.detalle', cid=c.id) }}">ver todos</a>{% endif %}
     </p>
     <div class="acciones">
@@ -35,7 +36,8 @@
 <div class="panel">
     <h2>Segundo aviso</h2>
     <p>Del primer aviso ya enviado: <strong>{{ segundo_sin }}</strong> contacto(s) sin respuesta{% if segundo_con %} y <strong>{{ segundo_con }}</strong> que ya respondieron{% endif %}.
-       {% if not segundo_sin and not segundo_con %}<span class="nota">Aún no hay contactos a quienes enviarlo (primero envía el primer aviso).</span>{% endif %}</p>
+       {% if finalizados %}<br><span class="nota">{{ finalizados }} finalizado(s) no recibirán el segundo aviso.</span>{% endif %}
+       {% if not segundo_sin and not segundo_con %}<br><span class="nota">Aún no hay contactos a quienes enviarlo (primero envía el primer aviso, o quedan todos finalizados).</span>{% endif %}</p>
     {% if segundo_sin or segundo_con %}
     <form method="post" action="{{ url_for('whatsapp.segundo_aviso', cid=c.id) }}" onsubmit="return confirm('¿Enviar el segundo aviso?')">
         <input type="hidden" name="csrf" value="{{ csrf_token() }}">
@@ -47,18 +49,35 @@
 {% endif %}
 
 <div class="panel">
-    <h2>Mensajes{% if filtro %} · {{ WA_ESTADOS[filtro] }}{% endif %}</h2>
+    <h2>Mensajes{% if filtro %} · {{ 'Finalizados' if filtro == 'finalizado' else WA_ESTADOS[filtro] }}{% endif %}</h2>
+    {% if puede('whatsapp.enviar') %}
+    <form id="form-masivo" method="post" action="{{ url_for('whatsapp.finalizar', cid=c.id) }}" class="acciones" style="margin-bottom:8px"
+          onsubmit="return confirm(this.dataset.msg.replace('X', document.querySelectorAll('input[name=ids]:checked').length))">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="estado" value="{{ filtro or '' }}">
+        <button type="submit" name="accion" value="finalizar" class="secundario" onclick="this.form.dataset.msg='¿Finalizar X contacto(s)? No recibirán más mensajes ni el segundo aviso.'">Finalizar seleccionados</button>
+        <button type="submit" name="accion" value="reabrir" class="secundario" onclick="this.form.dataset.msg='¿Reabrir X contacto(s)?'">Reabrir seleccionados</button>
+        <span class="nota">Marca contactos en la tabla (o usa el botón de cada fila). «Finalizar» = ya entregó el documento: sale del segundo aviso.</span>
+    </form>
+    {% endif %}
     <div class="tabla-scroll"><table>
-        <thead><tr><th>Contacto</th><th>Aviso</th><th>Manifiestos</th><th>Estado</th><th>Enviado</th><th>Respuesta</th></tr></thead>
+        <thead><tr>{% if puede('whatsapp.enviar') %}<th><input type="checkbox" id="marcar-todos" title="Marcar todos" aria-label="Marcar todos"></th>{% endif %}<th>Contacto</th><th>Aviso</th><th>Manifiestos</th><th>Estado</th><th>Enviado</th><th>Respuesta</th>{% if puede('whatsapp.enviar') %}<th>Gestión</th>{% endif %}</tr></thead>
         <tbody>{% for m in msgs %}
-        <tr>
+        <tr{% if m.finalizado %} style="opacity:.6"{% endif %}>
+            {% if puede('whatsapp.enviar') %}<td>{% if m.aviso == 1 %}<input type="checkbox" name="ids" value="{{ m.id }}" form="form-masivo" aria-label="Seleccionar {{ m.contacto or m.telefono }}">{% endif %}</td>{% endif %}
             <td>{{ m.contacto or '—' }}<br><span class="nota">{{ m.telefono }}</span></td>
             <td>{{ m.aviso }}.º</td>
             <td>{% if items.get(m.telefono) %}{% for i in items[m.telefono] %}{{ i.fecha.strftime('%d/%m/%Y') if i.fecha else '—' }} · {{ i.manifiesto }} · {{ i.placa or '—' }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% else %}{{ m.manifiestos or m.manifiesto or '' }}{% endif %}</td>
-            <td>{{ WA_ESTADOS[m.estado] }}{% if m.error %}<br><span class="nota">{{ m.error }}</span>{% endif %}</td>
+            <td>{{ WA_ESTADOS[m.estado] }}{% if m.error %}<br><span class="nota">{{ m.error }}</span>{% endif %}{% if m.finalizado %}<br><strong>✔ Finalizado</strong>{% endif %}</td>
             <td>{{ m.enviado_en.strftime('%d/%m %H:%M') if m.enviado_en else '' }}</td>
             <td>{% if m.n_resp %}<strong>{{ m.n_resp }}</strong> · {{ (m.ultima_resp or '')[:120] }}{% endif %}</td>
-        </tr>{% else %}<tr><td colspan="6">Sin mensajes.</td></tr>{% endfor %}</tbody>
+            {% if puede('whatsapp.enviar') %}<td>{% if m.aviso == 1 %}
+                <form method="post" action="{{ url_for('whatsapp.finalizar', cid=c.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="ids" value="{{ m.id }}"><input type="hidden" name="estado" value="{{ filtro or '' }}">
+                    {% if m.finalizado %}<button type="submit" name="accion" value="reabrir" class="secundario" title="{{ (m.finalizado_por or '') ~ ' · ' ~ (m.finalizado_en.strftime('%d/%m/%Y %H:%M') if m.finalizado_en else '') }}">Reabrir</button>
+                    {% else %}<button type="submit" name="accion" value="finalizar" class="secundario" onclick="return confirm('¿Finalizar a {{ (m.contacto or m.telefono)|e }}? No recibirá más mensajes ni el segundo aviso.')">Finalizar</button>{% endif %}
+                </form>{% endif %}</td>{% endif %}
+        </tr>{% else %}<tr><td colspan="8">Sin mensajes.</td></tr>{% endfor %}</tbody>
     </table></div>
 </div>
 
@@ -80,4 +99,15 @@
     </table></div>
 </div>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+    (function () {
+        var todos = document.getElementById('marcar-todos');
+        if (!todos) return;
+        todos.addEventListener('change', function () {
+            document.querySelectorAll('input[name=ids][form=form-masivo]').forEach(function (c) { c.checked = todos.checked; });
+        });
+    })();
+</script>
 {% endblock %}

@@ -5,7 +5,8 @@
   "description": "Servicio de envío masivo por WhatsApp para C&C Gestión",
   "main": "server.js",
   "scripts": {
-    "start": "node --env-file=.env server.js"
+    "start": "node --env-file=.env server.js",
+    "probar-onedrive": "node --env-file=.env probar_onedrive.js"
   },
   "engines": {
     "node": ">=20.6"

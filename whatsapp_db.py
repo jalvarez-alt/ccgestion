@@ -53,6 +53,9 @@ _TABLAS = [
         contacto VARCHAR(150) NULL,
         telefono VARCHAR(20) NOT NULL,
         chat_id VARCHAR(60) NULL,
+        finalizado TINYINT NOT NULL DEFAULT 0,
+        finalizado_por VARCHAR(150) NULL,
+        finalizado_en DATETIME NULL,
         texto TEXT NOT NULL,
         estado VARCHAR(12) NOT NULL DEFAULT 'pendiente',
         wa_id VARCHAR(120) NULL,
@@ -111,7 +114,8 @@ def asegurar_tablas():
                                ("chat_id", "VARCHAR(60) NULL"))),
             ("wa_campanas", (("plantilla2", "TEXT NULL"),)),
             ("wa_mensajes", (("aviso", "TINYINT NOT NULL DEFAULT 1"), ("manifiestos", "TEXT NULL"),
-                             ("chat_id", "VARCHAR(60) NULL")))):
+                             ("chat_id", "VARCHAR(60) NULL"), ("finalizado", "TINYINT NOT NULL DEFAULT 0"),
+                             ("finalizado_por", "VARCHAR(150) NULL"), ("finalizado_en", "DATETIME NULL")))):
         existentes = {r["COLUMN_NAME"] for r in _ejecutar(
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
             "AND TABLE_NAME = %s", [tabla])}
@@ -285,9 +289,34 @@ def candidatos_segundo(cid):
         "SELECT m.*, (SELECT COUNT(*) FROM wa_respuestas r JOIN wa_mensajes x ON x.id = r.mensaje_id "
         "WHERE x.campana_id = m.campana_id AND x.telefono = m.telefono) AS n_resp "
         "FROM wa_mensajes m WHERE m.campana_id = %s AND m.aviso = 1 AND m.estado IN ('enviado','entregado','leido') "
+        "AND m.finalizado = 0 "
         "AND NOT EXISTS (SELECT 1 FROM wa_mensajes s WHERE s.campana_id = m.campana_id AND s.telefono = m.telefono "
         "AND s.aviso = 2) ORDER BY m.id", [cid])
     return [f for f in filas if not f["n_resp"]], [f for f in filas if f["n_resp"]]
+
+
+def finalizar(cid, ids, usuario, valor=True):
+    """Finaliza (o reabre) contactos de la campaña. ids = ids de mensajes del 1.er aviso.
+    Finalizar = no se le envía nada más: sale del segundo aviso y se cancela lo que siga en cola/pendiente."""
+    n = 0
+    for mid in ids:
+        m = _ejecutar("SELECT telefono FROM wa_mensajes WHERE id = %s AND campana_id = %s AND aviso = 1",
+                      [mid, cid], uno=True)
+        if not m:
+            continue
+        tel = m["telefono"]
+        if valor:
+            _ejecutar("UPDATE wa_mensajes SET finalizado = 1, finalizado_por = %s, finalizado_en = %s "
+                      "WHERE campana_id = %s AND telefono = %s", [(usuario or "")[:150], ahora(), cid, tel], commit=True)
+            _ejecutar("DELETE FROM wa_mensajes WHERE campana_id = %s AND telefono = %s AND aviso = 2 "
+                      "AND estado IN ('pendiente','en_cola')", [cid, tel], commit=True)
+            _ejecutar("UPDATE wa_mensajes SET estado = 'pendiente' WHERE campana_id = %s AND telefono = %s "
+                      "AND aviso = 1 AND estado = 'en_cola'", [cid, tel], commit=True)
+        else:
+            _ejecutar("UPDATE wa_mensajes SET finalizado = 0, finalizado_por = NULL, finalizado_en = NULL "
+                      "WHERE campana_id = %s AND telefono = %s", [cid, tel], commit=True)
+        n += 1
+    return n
 
 
 def crear_segundo_aviso(cid, plantilla2, incluir_respondieron=False):
@@ -310,10 +339,11 @@ def campanas():
     asegurar_tablas()
     return _ejecutar(
         "SELECT c.*, SUM(m.aviso = 1) AS total, "
-        "SUM(m.estado='pendiente') AS pendientes, SUM(m.estado='en_cola') AS en_cola, "
+        "SUM(m.estado='pendiente' AND m.finalizado = 0) AS pendientes, SUM(m.estado='en_cola' AND m.finalizado = 0) AS en_cola, "
+        "SUM(m.aviso = 1 AND m.finalizado = 1) AS finalizados, "
         "SUM(m.aviso = 1 AND m.estado IN ('enviado','entregado','leido')) AS enviados, "
         "SUM(m.aviso = 1 AND m.estado IN ('entregado','leido')) AS entregados, "
-        "SUM(m.aviso = 1 AND m.estado='leido') AS leidos, SUM(m.estado='error') AS errores, "
+        "SUM(m.aviso = 1 AND m.estado='leido') AS leidos, SUM(m.estado='error' AND m.finalizado = 0) AS errores, "
         "SUM(m.aviso = 2 AND m.estado IN ('enviado','entregado','leido')) AS segundos, "
         "(SELECT COUNT(*) FROM wa_respuestas r JOIN wa_mensajes x ON x.id = r.mensaje_id WHERE x.campana_id = c.id) AS respuestas "
         "FROM wa_campanas c LEFT JOIN wa_mensajes m ON m.campana_id = c.id GROUP BY c.id ORDER BY c.id DESC")
@@ -329,8 +359,10 @@ def mensajes(cid, estado=None):
            "(SELECT r.texto FROM wa_respuestas r WHERE r.mensaje_id = m.id ORDER BY r.id DESC LIMIT 1) AS ultima_resp "
            "FROM wa_mensajes m WHERE m.campana_id = %s")
     params = [cid]
-    if estado in ESTADOS:
-        sql += " AND m.estado = %s"
+    if estado == "finalizado":
+        sql += " AND m.finalizado = 1"
+    elif estado in ESTADOS:
+        sql += " AND m.estado = %s AND m.finalizado = 0"
         params.append(estado)
     return _ejecutar(sql + " ORDER BY m.id", params)
 
