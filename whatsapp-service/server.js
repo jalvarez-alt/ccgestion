@@ -55,6 +55,16 @@ async function avisar(ruta, cuerpo) {
 
 const FATAL = /detached Frame|Target closed|Session closed|Execution context was destroyed|Protocol error|Navigating frame/i;
 let reiniciando = false;
+let fallosInicio = 0;
+
+function programarReintento() {
+  if (++fallosInicio > 3) {
+    console.error('Falló el inicio 3 veces: usa el botón «Reiniciar servicio» en ccgestion cuando haya internet.');
+    return;
+  }
+  console.log('Reintentando iniciar en ' + 10 * fallosInicio + ' s (intento ' + fallosInicio + '/3)…');
+  setTimeout(() => reiniciar(), 10000 * fallosInicio);
+}
 
 async function reiniciar(borrarSesion = false) {
   if (reiniciando) return;
@@ -70,9 +80,11 @@ async function reiniciar(borrarSesion = false) {
     }
     client = crearCliente();
     await client.initialize();
+    fallosInicio = 0;
   } catch (e) {
     console.error('Error al reiniciar:', e.message);
     estado.estado = 'error';
+    programarReintento();
   } finally {
     reiniciando = false;
   }
@@ -246,6 +258,15 @@ const POLL = parseFloat(process.env.POLL_SEG || '10') * 1000;
 const vistos = new Map();            // id -> momento en que se tomó (evita enviar dos veces el mismo mensaje)
 const VISTO_MIN = 10 * 60 * 1000;
 
+// Reinicio pedido desde ccgestion: cierra el navegador (para no dejar Chrome huérfano) y termina el proceso.
+// El vigilante (iniciar_whatsapp.bat) lo vuelve a levantar; la sesión de WhatsApp se conserva.
+async function reiniciarProceso() {
+  console.log('Reinicio pedido desde ccgestion: cerrando…');
+  estado.estado = 'reiniciando';
+  try { await Promise.race([client.destroy(), dormir(10000)]); } catch (e) { console.error('destroy:', e.message); }
+  process.exit(0);
+}
+
 async function cerrarSesion() {
   // Si WhatsApp Web está colgado, logout() falla: en ese caso se fuerza cerrando el navegador y borrando la sesión local.
   try { await Promise.race([client.logout(), dormir(15000).then(() => { throw new Error('tiempo agotado'); })]); }
@@ -298,6 +319,7 @@ async function sondear() {
     }
     if (cola.length) procesarCola();
     if (r.comando === 'cerrar') await cerrarSesion();
+    if (r.comando === 'reiniciar') await reiniciarProceso();
   } catch (e) {
     console.error('Sondeo:', e.message);
   }
@@ -310,4 +332,8 @@ async function ciclo() {
 
 console.log('Servicio WhatsApp -> ' + FLASK_URL);
 ciclo();
-client.initialize().catch((e) => { console.error(e); estado.estado = 'error'; });
+client.initialize().then(() => { fallosInicio = 0; }).catch((e) => {
+  console.error('Error al iniciar:', e.message);
+  estado.estado = 'error';
+  programarReintento();
+});

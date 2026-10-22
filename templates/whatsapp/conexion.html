@@ -20,6 +20,15 @@
     {% else %}
         <p>Iniciando el servicio ({{ est.estado or 'desconocido' }})… espera unos segundos.</p>
     {% endif %}
-    <div class="acciones"><a class="boton secundario" href="{{ url_for('whatsapp.lista') }}">Volver</a></div>
+    <div class="acciones">
+        {% if not error_servicio %}
+        <form method="post" action="{{ url_for('whatsapp.reiniciar_servicio') }}" onsubmit="return confirm('¿Reiniciar el servicio de WhatsApp? Se desconecta 1-2 minutos y se reconecta solo.')">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button type="submit">Reiniciar servicio</button>
+        </form>
+        {% endif %}
+        <a class="boton secundario" href="{{ url_for('whatsapp.lista') }}">Volver</a>
+    </div>
+    <p class="nota">Si el servicio no envía señal (apagado), no puede reiniciarse desde aquí: hay que encenderlo en el PC de la oficina con <code>iniciar_whatsapp.bat</code>. Mientras esa ventana esté abierta, el servicio se levanta solo si se cae.</p>
 </div>
 {% endblock %}

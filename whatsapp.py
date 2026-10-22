@@ -75,6 +75,20 @@ def conexion():
     return render_template("whatsapp/conexion.html", est=est, error_servicio=error)
 
 
+@bp.route("/conexion/reiniciar", methods=["POST"])
+@requiere_permiso("whatsapp.enviar")
+def reiniciar_servicio():
+    """Pide al servicio de WhatsApp que se reinicie. Solo llega si el servicio sigue enviando señal."""
+    est, error = estado_servicio()
+    if error:
+        flash("El servicio no está enviando señal, así que no puede reiniciarse desde aquí. Enciéndelo en el PC de la "
+              "oficina con «iniciar_whatsapp.bat» (carpeta whatsapp-service).")
+    else:
+        W.pedir_reinicio()
+        flash("Reinicio pedido. El servicio se apaga y vuelve a conectarse solo en 1-2 minutos; recarga la página para ver el estado.")
+    return redirect(url_for("whatsapp.conexion"))
+
+
 @bp.route("/conexion/cerrar", methods=["POST"])
 @requiere_permiso("whatsapp.enviar")
 def cerrar_sesion():

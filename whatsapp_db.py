@@ -96,9 +96,11 @@ _TABLAS = [
         numero VARCHAR(30) NULL,
         en_cola INT NOT NULL DEFAULT 0,
         comando VARCHAR(20) NULL,
+        comando_en DATETIME NULL,
         actualizado DATETIME NOT NULL
     ) CHARACTER SET utf8mb4""",
 ]
+VIGENCIA_COMANDO = 120   # segundos que vale una orden (reiniciar/cerrar) pedida desde la app
 VIGENCIA_LATIDO = 60     # segundos sin señal del servicio => se considera apagado
 
 
@@ -117,7 +119,8 @@ def asegurar_tablas():
             ("wa_campanas", (("plantilla2", "TEXT NULL"),)),
             ("wa_mensajes", (("aviso", "TINYINT NOT NULL DEFAULT 1"), ("manifiestos", "TEXT NULL"),
                              ("chat_id", "VARCHAR(60) NULL"), ("finalizado", "TINYINT NOT NULL DEFAULT 0"),
-                             ("finalizado_por", "VARCHAR(150) NULL"), ("finalizado_en", "DATETIME NULL")))):
+                             ("finalizado_por", "VARCHAR(150) NULL"), ("finalizado_en", "DATETIME NULL"))),
+            ("wa_servicio", (("comando_en", "DATETIME NULL"),))):
         existentes = {r["COLUMN_NAME"] for r in _ejecutar(
             "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
             "AND TABLE_NAME = %s", [tabla])}
@@ -139,9 +142,13 @@ def latido(estado, qr, numero, en_cola):
               "ON DUPLICATE KEY UPDATE estado=VALUES(estado), qr=VALUES(qr), numero=VALUES(numero), "
               "en_cola=VALUES(en_cola), actualizado=VALUES(actualizado)", [estado, qr, numero, en_cola, ahora()],
               commit=True)
-    comando = _ejecutar("SELECT comando FROM wa_servicio WHERE id = 1", uno=True)["comando"]
+    fila = _ejecutar("SELECT comando, comando_en FROM wa_servicio WHERE id = 1", uno=True)
+    comando = fila["comando"]
     if comando:
-        _ejecutar("UPDATE wa_servicio SET comando = NULL WHERE id = 1", commit=True)
+        _ejecutar("UPDATE wa_servicio SET comando = NULL, comando_en = NULL WHERE id = 1", commit=True)
+        # Una orden vieja (el servicio estaba apagado cuando se pidió) no se ejecuta al volver a encenderlo.
+        if not fila["comando_en"] or (ahora() - fila["comando_en"]).total_seconds() > VIGENCIA_COMANDO:
+            comando = None
     if estado != "listo":
         return comando, [], [], []
     filas = _ejecutar("SELECT id, telefono, texto FROM wa_mensajes WHERE estado = 'en_cola' ORDER BY id")
@@ -191,9 +198,18 @@ def estado_servicio():
     return {"estado": f["estado"], "qr": f["qr"], "numero": f["numero"], "en_cola": f["en_cola"]}, None
 
 
-def pedir_cierre():
+def pedir_comando(comando):
     asegurar_tablas()
-    _ejecutar("UPDATE wa_servicio SET comando = 'cerrar' WHERE id = 1", commit=True)
+    _ejecutar("UPDATE wa_servicio SET comando = %s, comando_en = %s WHERE id = 1", [comando, ahora()], commit=True)
+
+
+def pedir_cierre():
+    pedir_comando("cerrar")
+
+
+def pedir_reinicio():
+    """Pide al servicio que se reinicie (cierra el navegador y el proceso; el vigilante del PC lo vuelve a levantar)."""
+    pedir_comando("reiniciar")
 
 
 # ---------------------------------------------------------------- teléfonos y texto
