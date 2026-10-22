@@ -24,10 +24,12 @@ PLANTILLA_DEFECTO = (
     "Responde este mensaje con las fotos de los soportes e indícanos cuando se hara el envio.")
 
 PLANTILLA_SEGUNDO = (
-    "Hola {nombre_conductor}, seguimos pendientes de la documentación de:\n"
+    "Hola {nombre_conductor} 👋,\n\n"
+    "Seguimos pendientes de la documentación de:\n"
     "- {fecha} - Manifiesto {num} - Placa {placa}\n\n"
-    "Mientras no recibamos estos documentos, no podemos avanzar con el pago de tu saldo ni gestionar novedades del viaje.\n\n"
+    "Sin estos documentos, no podemos avanzar con el pago de tu saldo, ni gestionar novedades del viaje.\n\n"
     "Recuerda que puedes enviarlos por Correspondencia apenas termines tu ruta, sin necesidad de regresar a Yumbo.\n\n"
+    "Si ya hiciste el envío, Indícanos el numero de guía para revisar la trazabilidad.\n\n"
     "Quedamos atentos 🙏")
 
 _CREADAS = False

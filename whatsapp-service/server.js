@@ -20,6 +20,13 @@ if (!TOKEN || TOKEN.length < 16) {
   process.exit(1);
 }
 
+process.on('uncaughtException', (e) => {
+  console.error('Error no controlado:', e && e.message);
+  // Típico tras LOGOUT: la librería no puede borrar la carpeta de sesión. Se reinicia limpiando la sesión (pedirá QR).
+  if (/ENOTEMPTY|EBUSY|EPERM/.test(String(e && e.message))) setTimeout(() => reiniciar(true), 3000);
+});
+process.on('unhandledRejection', (e) => console.error('Promesa rechazada:', e && (e.message || e)));
+
 const estado = { estado: 'iniciando', qr: null, numero: null };
 const cola = [];
 let procesando = false;
@@ -95,7 +102,7 @@ cl.on('disconnected', (motivo) => {
   estado.estado = 'desconectado';
   estado.numero = null;
   console.error('WhatsApp desconectado:', motivo);
-  setTimeout(() => reiniciar(), 5000);
+  setTimeout(() => reiniciar(motivo === 'LOGOUT'), 5000);
 });
 
 // Estados de entrega/lectura de lo que enviamos (1 enviado, 2 entregado, 3 leído, 4 reproducido)
