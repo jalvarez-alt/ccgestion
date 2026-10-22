@@ -127,7 +127,30 @@ def asegurar_tablas():
         for col, tipo in cols:
             if col not in existentes:
                 _ejecutar("ALTER TABLE %s ADD COLUMN %s %s" % (tabla, col, tipo), commit=True)
+    sembrar_roles()
     _CREADAS = True
+
+
+# Roles listos para asignar a las personas (Usuarios > editar > rol). Se crean una vez como «rol base» (no se borran;
+# sus permisos se pueden ajustar en Usuarios > Roles y permisos).
+ROLES_WHATSAPP = (
+    ("whatsapp_consulta", "WhatsApp - Consulta", "Ve campañas, historial y respuestas de WhatsApp.",
+     ("whatsapp.consultar",)),
+    ("whatsapp_operador", "WhatsApp - Operador", "Crea campañas, envía los avisos y finaliza contactos.",
+     ("whatsapp.consultar", "whatsapp.campanas", "whatsapp.enviar")),
+    ("whatsapp_completo", "WhatsApp - Completo", "Todo lo del operador, más la conexión (QR) y el reinicio del servicio.",
+     ("whatsapp.consultar", "whatsapp.campanas", "whatsapp.enviar", "whatsapp.servicio")),
+)
+
+
+def sembrar_roles():
+    for clave, nombre, descripcion, permisos in ROLES_WHATSAPP:
+        if _ejecutar("SELECT clave FROM roles WHERE clave = %s", [clave], uno=True):
+            continue
+        _ejecutar("INSERT INTO roles (clave, nombre, descripcion, sistema) VALUES (%s, %s, %s, 1)",
+                  [clave, nombre, descripcion], commit=True)
+        for p in permisos:
+            _ejecutar("INSERT INTO rol_permisos (rol, permiso) VALUES (%s, %s)", [clave, p], commit=True)
 
 
 def ahora():

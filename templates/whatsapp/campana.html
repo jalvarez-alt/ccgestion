@@ -50,7 +50,7 @@
 
 <div class="panel">
     <h2>Mensajes{% if filtro %} · {{ 'Finalizados' if filtro == 'finalizado' else WA_ESTADOS[filtro] }}{% endif %}</h2>
-    {% if puede('whatsapp.enviar') %}
+    {% if puede('whatsapp.campanas') %}
     <form id="form-masivo" method="post" action="{{ url_for('whatsapp.finalizar', cid=c.id) }}" class="acciones" style="margin-bottom:8px"
           onsubmit="return confirm(this.dataset.msg.replace('X', document.querySelectorAll('input[name=ids]:checked').length))">
         <input type="hidden" name="csrf" value="{{ csrf_token() }}">
@@ -61,17 +61,17 @@
     </form>
     {% endif %}
     <div class="tabla-scroll"><table class="tabla-wa">
-        <thead><tr>{% if puede('whatsapp.enviar') %}<th><input type="checkbox" id="marcar-todos" title="Marcar todos" aria-label="Marcar todos"></th>{% endif %}<th>Contacto</th><th>Aviso</th><th>Manifiestos</th><th>Estado</th><th>Enviado</th><th>Respuesta</th>{% if puede('whatsapp.enviar') %}<th>Gestión</th>{% endif %}</tr></thead>
+        <thead><tr>{% if puede('whatsapp.campanas') %}<th><input type="checkbox" id="marcar-todos" title="Marcar todos" aria-label="Marcar todos"></th>{% endif %}<th>Contacto</th><th>Aviso</th><th>Manifiestos</th><th>Estado</th><th>Enviado</th><th>Respuesta</th>{% if puede('whatsapp.campanas') %}<th>Gestión</th>{% endif %}</tr></thead>
         <tbody>{% for m in msgs %}
         <tr{% if m.finalizado %} style="opacity:.6"{% endif %}>
-            {% if puede('whatsapp.enviar') %}<td>{% if m.aviso == 1 %}<input type="checkbox" name="ids" value="{{ m.id }}" form="form-masivo" aria-label="Seleccionar {{ m.contacto or m.telefono }}">{% endif %}</td>{% endif %}
+            {% if puede('whatsapp.campanas') %}<td>{% if m.aviso == 1 %}<input type="checkbox" name="ids" value="{{ m.id }}" form="form-masivo" aria-label="Seleccionar {{ m.contacto or m.telefono }}">{% endif %}</td>{% endif %}
             <td><strong>{{ m.contacto or '—' }}</strong><br><span class="nw">{{ m.telefono|tel }}</span></td>
             <td>{{ m.aviso }}.º</td>
             <td>{% if items.get(m.telefono) %}{% for i in items[m.telefono] %}<span class="nw">{{ i.fecha.strftime('%d/%m/%Y') if i.fecha else '—' }} · {{ i.manifiesto }} · {{ i.placa or '—' }}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}{% else %}{{ m.manifiestos or m.manifiesto or '' }}{% endif %}</td>
             <td>{{ WA_ESTADOS[m.estado] }}{% if m.error %}<br><span class="nota">{{ m.error }}</span>{% endif %}{% if m.finalizado %}<br><strong>✔ Finalizado</strong>{% endif %}</td>
             <td class="nw">{{ m.enviado_en.strftime('%d/%m %H:%M') if m.enviado_en else '' }}</td>
             <td class="resp">{% if m.n_resp %}<strong>{{ m.n_resp }}</strong> · {{ (m.ultima_resp or '')[:120] }}{% endif %}</td>
-            {% if puede('whatsapp.enviar') %}<td>{% if m.aviso == 1 %}
+            {% if puede('whatsapp.campanas') %}<td>{% if m.aviso == 1 %}
                 <form method="post" action="{{ url_for('whatsapp.finalizar', cid=c.id) }}" style="display:inline">
                     <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="ids" value="{{ m.id }}"><input type="hidden" name="estado" value="{{ filtro or '' }}">
                     {% if m.finalizado %}<button type="submit" name="accion" value="reabrir" class="secundario" title="{{ (m.finalizado_por or '') ~ ' · ' ~ (m.finalizado_en.strftime('%d/%m/%Y %H:%M') if m.finalizado_en else '') }}">Reabrir</button>

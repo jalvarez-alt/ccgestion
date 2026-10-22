@@ -16,10 +16,8 @@
         <p>Iniciando… ({{ est.estado or 'desconocido' }})</p>
     {% endif %}
     <div class="acciones">
-        {% if puede('whatsapp.enviar') %}
-        <a class="boton secundario" href="{{ url_for('whatsapp.conexion') }}">Ver conexión / QR</a>
-        <a class="boton" href="{{ url_for('whatsapp.nueva') }}">Nueva campaña</a>
-        {% endif %}
+        {% if puede('whatsapp.servicio') %}<a class="boton secundario" href="{{ url_for('whatsapp.conexion') }}">Ver conexión / QR</a>{% endif %}
+        {% if puede('whatsapp.campanas') %}<a class="boton" href="{{ url_for('whatsapp.nueva') }}">Nueva campaña</a>{% endif %}
         <a class="boton secundario" href="{{ url_for('whatsapp.todas_respuestas') }}">Todas las respuestas</a>
     </div>
 </div>

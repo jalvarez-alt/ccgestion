@@ -87,8 +87,8 @@
             <details class="m-grupo"{% if ep.startswith('whatsapp.') %} open{% endif %}>
                 <summary><a href="{{ url_for('whatsapp.lista') }}" class="m-tit">WhatsApp</a></summary>
                 <a class="m-item {% if ep in ('whatsapp.lista', 'whatsapp.detalle') %}activo{% endif %}" href="{{ url_for('whatsapp.lista') }}">Campañas</a>
-                {% if puede('whatsapp.enviar') %}<a class="m-item {% if ep == 'whatsapp.nueva' %}activo{% endif %}" href="{{ url_for('whatsapp.nueva') }}">Nueva campaña</a>
-                <a class="m-item {% if ep == 'whatsapp.conexion' %}activo{% endif %}" href="{{ url_for('whatsapp.conexion') }}">Conexión (QR)</a>
+                {% if puede('whatsapp.campanas') %}<a class="m-item {% if ep == 'whatsapp.nueva' %}activo{% endif %}" href="{{ url_for('whatsapp.nueva') }}">Nueva campaña</a>{% endif %}
+                {% if puede('whatsapp.servicio') %}<a class="m-item {% if ep == 'whatsapp.conexion' %}activo{% endif %}" href="{{ url_for('whatsapp.conexion') }}">Conexión (QR)</a>
                 <form method="post" action="{{ url_for('whatsapp.reiniciar_servicio') }}" onsubmit="return confirm('¿Reiniciar el servicio de WhatsApp? Se desconecta 1-2 minutos y se reconecta solo.')" style="margin:0">
                     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
                     <button type="submit" class="m-item" style="width:100%;text-align:left;background:none;border:0;border-radius:0;box-shadow:none;cursor:pointer;font:inherit;color:inherit">Reiniciar servicio</button>

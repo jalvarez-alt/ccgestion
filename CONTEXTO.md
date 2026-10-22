@@ -46,7 +46,7 @@ Otros: `db.py` (conexión), `config.py` (no versionado; plantilla en `config.exa
 
 ## 5. Módulo WhatsApp (mensajes masivos de documentos pendientes)
 **Arquitectura**
-- **Servicio Node** (`whatsapp-service/`, `whatsapp-web.js`, **vía no oficial**: riesgo de bloqueo del número) corre en el **PC de la oficina** y debe estar encendido: `whatsapp-service\iniciar_whatsapp.bat` (o `npm start`).
+- **Servicio Node** (`whatsapp-service/`, `whatsapp-web.js`, **vía no oficial**: riesgo de bloqueo del número) corre en el **PC de la oficina** y debe estar encendido: `whatsapp-service\iniciar_whatsapp.bat`. Ese `.bat` es un **vigilante**: si el servicio se cae o se reinicia desde la app, lo vuelve a levantar; también limpia Chrome huérfanos y guarda el log en `tmp\wa_service.log`. No cerrar su ventana.
 - El servicio **solo hace conexiones salientes**: cada ~10 s envía un latido a `POST /whatsapp/webhook/latido` de producción (con token `X-WA-Token`), recibe los mensajes «en cola» y reporta resultados/respuestas por webhooks (`estado`, `respuesta`, `archivo`, `lid`). No hay túnel ni puertos abiertos. La cola vive en la BD.
 - El QR se escanea desde la app: **WhatsApp → Conexión (QR)**. La sesión queda en `whatsapp-service/.wwebjs_auth/`.
 - Si no hay latido por más de 60 s la app muestra el servicio como apagado.
@@ -58,7 +58,9 @@ Otros: `db.py` (conexión), `config.py` (no versionado; plantilla en `config.exa
 - **Historial:** estados pendiente / en cola / enviado / entregado / leído / error, fechas, exportación a Excel (envíos, manifiestos, respuestas).
 - **Respuestas** (menú WhatsApp → Respuestas): muestra el celular al que se envió, desde cuál respondieron, contacto, manifiestos y placas; **filtros** por placa, contacto, manifiesto, celular y campaña.
 - **IDs internos (@lid):** WhatsApp a veces identifica al contacto con un ID interno en vez del celular. El servicio lo traduce (`getContactLidAndPhone`), guarda el `chat_id` al enviar y corrige/liga automáticamente las respuestas antiguas sin celular.
-- **Permisos:** `whatsapp.consultar` (ver) y `whatsapp.enviar` (crear campañas, enviar, finalizar, conexión). El administrador tiene todos.
+- **Permisos (4):** `whatsapp.consultar` (ver campañas, historial, respuestas, Excel), `whatsapp.campanas` (crear campañas, plantilla, finalizar/reabrir contactos), `whatsapp.enviar` (enviar primer/segundo aviso, cancelar cola) y `whatsapp.servicio` (conexión QR, reiniciar y cerrar sesión). El administrador tiene todos.
+- **Roles listos** (se crean solos como «rol base»; se asignan en Usuarios > editar): **WhatsApp - Consulta** (consultar), **WhatsApp - Operador** (consultar + campañas + enviar) y **WhatsApp - Completo** (todos). Sus permisos se ajustan en Usuarios > Roles y permisos.
+- **Reiniciar servicio:** opción del menú WhatsApp (y en Conexión): pide el reinicio por el latido (la orden vale 2 min). Solo funciona si el servicio sigue enviando señal; si está apagado hay que abrir `iniciar_whatsapp.bat`.
 
 **Adjuntos → OneDrive (código hecho, NO operativo)**
 - Imágenes → PDF (A4), PDF tal cual; nombre = manifiesto(s); carpeta = cliente (reutiliza la existente; hoy el archivo ya no trae cliente → `Sin identificar`); cola local `cola_archivos/` si falla la subida; enlace en la app. Usa **Microsoft Graph** (credenciales de aplicación).
@@ -81,3 +83,4 @@ Otros: `db.py` (conexión), `config.py` (no versionado; plantilla en `config.exa
 - Módulo WhatsApp: campañas, historial y respuestas; servicio con sondeo (sin túnel); adjuntos → OneDrive (código).
 - Mensaje por conductor con varios manifiestos + segundo aviso; archivo plano Fecha/Manifiesto/Placa/Celular/Contacto.
 - Respuestas con número y filtros; traducción de IDs internos; hora de Colombia; botón Finalizar por contacto.
+- Tablas compactas; nuevo texto del segundo aviso; servicio resistente a LOGOUT; botón Reiniciar servicio + vigilante; permisos y roles de WhatsApp (2026-10-22).

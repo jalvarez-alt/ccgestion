@@ -18,8 +18,10 @@ PERMISOS = {
     "celulares.reactivar": ("Adm. Tecnológica · Celulares", "Reactivar celulares dados de baja"),
     "equipos.consultar": ("Adm. Tecnológica · Equipos", "Consultar el inventario de equipos"),
     "equipos.gestionar": ("Adm. Tecnológica · Equipos", "Crear y editar equipos y su software"),
-    "whatsapp.consultar": ("WhatsApp", "Ver campañas, historial de envíos y respuestas"),
-    "whatsapp.enviar": ("WhatsApp", "Crear campañas, conectar WhatsApp y enviar mensajes masivos"),
+    "whatsapp.consultar": ("WhatsApp", "Ver campañas, historial de envíos y respuestas (y exportar a Excel)"),
+    "whatsapp.campanas": ("WhatsApp", "Crear campañas, descargar la plantilla y finalizar o reabrir contactos"),
+    "whatsapp.enviar": ("WhatsApp", "Enviar los avisos (primero y segundo) y cancelar lo que siga en cola"),
+    "whatsapp.servicio": ("WhatsApp", "Conexión (QR), reiniciar el servicio y cerrar la sesión de WhatsApp"),
     "personas.consultar": ("Usuarios", "Ver usuarios de la aplicación y todos los usuarios"),
     "personas.gestionar": ("Usuarios", "Crear/editar personas y habilitar o deshabilitar el acceso"),
 }

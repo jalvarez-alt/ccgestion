@@ -69,14 +69,14 @@ def lista():
 
 
 @bp.route("/conexion")
-@requiere_permiso("whatsapp.enviar")
+@requiere_permiso("whatsapp.servicio")
 def conexion():
     est, error = estado_servicio()
     return render_template("whatsapp/conexion.html", est=est, error_servicio=error)
 
 
 @bp.route("/conexion/reiniciar", methods=["POST"])
-@requiere_permiso("whatsapp.enviar")
+@requiere_permiso("whatsapp.servicio")
 def reiniciar_servicio():
     """Pide al servicio de WhatsApp que se reinicie. Solo llega si el servicio sigue enviando señal."""
     est, error = estado_servicio()
@@ -90,7 +90,7 @@ def reiniciar_servicio():
 
 
 @bp.route("/conexion/cerrar", methods=["POST"])
-@requiere_permiso("whatsapp.enviar")
+@requiere_permiso("whatsapp.servicio")
 def cerrar_sesion():
     W.pedir_cierre()
     flash("Se pidió cerrar la sesión de WhatsApp. En unos segundos aparecerá un QR nuevo para volver a conectar.")
@@ -148,7 +148,7 @@ def leer_archivo(archivo):
 
 
 @bp.route("/nueva", methods=["GET", "POST"])
-@requiere_permiso("whatsapp.enviar")
+@requiere_permiso("whatsapp.campanas")
 def nueva():
     v = {"nombre": "Cumplidos pendientes " + date.today().strftime("%d/%m/%Y"), "plantilla": W.PLANTILLA_DEFECTO,
          "segundo": False, "plantilla2": W.PLANTILLA_SEGUNDO}
@@ -182,7 +182,7 @@ def nueva():
 
 
 @bp.route("/plantilla")
-@requiere_permiso("whatsapp.enviar")
+@requiere_permiso("whatsapp.campanas")
 def plantilla():
     from openpyxl import Workbook
     from io import BytesIO
@@ -272,7 +272,7 @@ def segundo_aviso(cid):
 
 
 @bp.route("/<int:cid>/finalizar", methods=["POST"])
-@requiere_permiso("whatsapp.enviar")
+@requiere_permiso("whatsapp.campanas")
 def finalizar(cid):
     """Finaliza (o reabre) uno o varios contactos de la campaña."""
     campana_o_404(cid)

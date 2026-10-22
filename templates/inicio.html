@@ -21,6 +21,12 @@
         <span>Inventario de celulares y equipos de cómputo, con asignaciones, software y Excel.</span>
     </a>
     {% endif %}
+    {% if puede('whatsapp.consultar') %}
+    <a class="tarjeta" href="{{ url_for('whatsapp.lista') }}">
+        <strong>WhatsApp</strong>
+        <span>Avisos masivos a conductores por documentos pendientes, con historial, respuestas y segundo aviso.</span>
+    </a>
+    {% endif %}
     {% if puede('personas.consultar') %}
     <a class="tarjeta" href="{{ url_for('usuarios.lista') }}">
         <strong>Usuarios</strong>
